@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85dea0073926b9f4886220ddfee6531c, type: 3}
+  m_Name: PedestrianPool
+  m_EditorClassIdentifier: 
+  _pedestrians:
+  - _pedestrianPrefab: {fileID: 1909001698619046016, guid: 58b47efdda7a1456a9436a2ce7aed227, type: 3}
+    _percent: 40
+    _dontInstantiate: 0
+  - _pedestrianPrefab: {fileID: 1909001698619046016, guid: 052b79b29d6d8433f88199dd2a3563a7, type: 3}
+    _percent: 60
+    _dontInstantiate: 0

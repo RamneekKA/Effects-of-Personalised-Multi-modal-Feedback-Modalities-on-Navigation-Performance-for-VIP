@@ -838,8 +838,8 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
                         case 0: assessmentResults.centralVisionRating = intValue; break;
                         case 1: assessmentResults.leftPeripheralRating = intValue; break;
                         case 2: assessmentResults.rightPeripheralRating = intValue; break;
-                        case 5: assessmentResults.lightSensitivityRating = intValue; break; // Color question is at index 5 now
-                        case 6: assessmentResults.lowLightDifficultyRating = intValue; break; // Light sensitivity at index 6
+                        case 6: assessmentResults.lightSensitivityRating = intValue; break; // Color question is at index 5 now
+                        case 7: assessmentResults.lowLightDifficultyRating = intValue; break; // Light sensitivity at index 6
                     }
                 }
             }

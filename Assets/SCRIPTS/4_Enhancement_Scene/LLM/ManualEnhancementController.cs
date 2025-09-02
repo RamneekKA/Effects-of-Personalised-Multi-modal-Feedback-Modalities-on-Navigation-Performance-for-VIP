@@ -1,0 +1,610 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// Manual Enhancement Controller for LLM Trials
+/// Provides inspector-based manual control of all enhancements during short_llm and long_llm trials
+/// All settings are contained in this single GameObject for easy access
+/// </summary>
+public class ManualEnhancementController : MonoBehaviour
+{
+    [Header("Trial Detection")]
+    [Tooltip("Only applies manual settings during LLM trials (short_llm, long_llm)")]
+    [SerializeField] private bool isLLMTrial = false;
+    [SerializeField] private string currentTrial = "";
+    
+    [Header("System References")]
+    [Tooltip("Route guide system for navigation line control")]
+    public RouteGuideSystem routeGuideSystem;
+    
+    [Tooltip("Dynamic object manager for bounding box control")]
+    public DynamicObjectManager dynamicObjectManager;
+    
+    [Tooltip("Unified audio controller for speech and spearcon control")]
+    public UnifiedAudioController unifiedAudioController;
+    
+    [Tooltip("Spatial haptic controller for haptic feedback control")]
+    public SpatialHapticController spatialHapticController;
+    
+    [Header("=== VISUAL ENHANCEMENT SETTINGS ===")]
+    
+    [Header("Navigation Line Controls")]
+    [Tooltip("Enable manual control of navigation line")]
+    public bool enableNavigationLineControl = true;
+    
+    [Range(0.1f, 2.0f)]
+    [Tooltip("Width of the navigation line")]
+    public float navigationLineWidth = 0.5f;
+    
+    [Range(0f, 1f)]
+    [Tooltip("Opacity of the navigation line (0=transparent, 1=opaque)")]
+    public float navigationLineOpacity = 1.0f;
+    
+    [Tooltip("Color of the navigation line")]
+    public Color navigationLineColor = Color.cyan;
+    
+    [Header("Bounding Box Controls")]
+    [Tooltip("Enable manual control of bounding boxes")]
+    public bool enableBoundingBoxControl = true;
+    
+    [Range(0.02f, 0.3f)]
+    [Tooltip("Width of the bounding box lines")]
+    public float boundingBoxLineWidth = 0.1f;
+    
+    [Range(0f, 1f)]
+    [Tooltip("Opacity of the bounding boxes (0=transparent, 1=opaque)")]
+    public float boundingBoxOpacity = 1.0f;
+    
+    [Tooltip("Color of the bounding boxes")]
+    public Color boundingBoxColor = Color.green;
+    
+    [Range(0.5f, 50f)]
+    [Tooltip("Range to show bounding boxes around objects")]
+    public float boundingBoxRange = 15f;
+    
+    [Header("=== AUDIO ENHANCEMENT SETTINGS ===")]
+    
+    [Header("Audio Mode Selection")]
+    [Tooltip("Choose audio enhancement type for LLM trial")]
+    public AudioEnhancementMode audioMode = AudioEnhancementMode.Disabled;
+    
+    [Header("TTS Speech Settings")]
+    [Range(0.5f, 5f)]
+    [Tooltip("How often to announce objects via speech")]
+    public float speechInterval = 2f;
+    
+    [Range(5f, 30f)]
+    [Tooltip("Detection range for speech announcements")]
+    public float speechRange = 15f;
+    
+    [Range(0f, 1f)]
+    [Tooltip("Volume for speech announcements")]
+    public float speechVolume = 0.8f;
+    
+    [Header("Spearcon Settings")]
+    [Range(0.5f, 5f)]
+    [Tooltip("How often to play spearcon audio clips")]
+    public float spearconInterval = 1.5f;
+    
+    [Range(5f, 50f)]
+    [Tooltip("Detection range for spearcon announcements")]
+    public float spearconRange = 25f;
+    
+    [Range(0f, 1f)]
+    [Tooltip("Volume for spearcon announcements")]
+    public float spearconVolume = 0.8f;
+    
+    [Range(1f, 20f)]
+    [Tooltip("Distance threshold - only announce objects beyond this distance")]
+    public float spearconDistanceThreshold = 5f;
+    
+    [Header("=== HAPTIC ENHANCEMENT SETTINGS ===")]
+    
+    [Header("Haptic System Control")]
+    [Tooltip("Enable haptic feedback during LLM trial")]
+    public bool enableHapticFeedback = true;
+    
+    [Range(5f, 50f)]
+    [Tooltip("Detection range for haptic feedback")]
+    public float hapticDetectionRange = 25f;
+    
+    [Header("Haptic Event Configurations")]
+    [Tooltip("Configure intensity ranges and intervals for each haptic event")]
+    public HapticEventConfig[] hapticEvents = new HapticEventConfig[]
+    {
+        new HapticEventConfig { eventName = "centre_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
+        new HapticEventConfig { eventName = "left_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
+        new HapticEventConfig { eventName = "right_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
+        new HapticEventConfig { eventName = "left_back_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
+        new HapticEventConfig { eventName = "right_back_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
+        new HapticEventConfig { eventName = "centre_leftback_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
+        new HapticEventConfig { eventName = "centre_rightback_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f }
+    };
+    
+    [Header("=== CURRENT STATUS ===")]
+    [SerializeField] private bool manualControlActive = false;
+    [SerializeField] private bool settingsApplied = false;
+    
+    // Audio mode enum for LLM trials
+    public enum AudioEnhancementMode
+    {
+        Disabled,
+        TTSSpeech,
+        StandardSpearcons,
+        DistanceFilteredSpearcons
+    }
+    
+    [System.Serializable]
+    public class HapticEventConfig
+    {
+        public string eventName;
+        [Range(0f, 1f)] public float minIntensity = 0.1f;
+        [Range(0f, 1f)] public float maxIntensity = 1.0f;
+        [Range(0.5f, 5f)] public float feedbackInterval = 1.5f;
+        [Range(1f, 50f)] public float detectionRange = 25f;
+    }
+    
+    void Start()
+    {
+        // Auto-find system references if not assigned
+        FindSystemReferences();
+        
+        // Check if this is an LLM trial
+        CheckTrialType();
+        
+        if (isLLMTrial)
+        {
+            Debug.Log($"ManualEnhancementController: LLM trial detected ({currentTrial}) - applying manual settings");
+            StartCoroutine(ApplyManualSettingsWithDelay());
+        }
+        else
+        {
+            Debug.Log($"ManualEnhancementController: Not an LLM trial ({currentTrial}) - manual control disabled");
+            manualControlActive = false;
+        }
+    }
+    
+    void FindSystemReferences()
+    {
+        if (routeGuideSystem == null)
+            routeGuideSystem = FindObjectOfType<RouteGuideSystem>();
+        
+        if (dynamicObjectManager == null)
+            dynamicObjectManager = FindObjectOfType<DynamicObjectManager>();
+        
+        if (unifiedAudioController == null)
+            unifiedAudioController = FindObjectOfType<UnifiedAudioController>();
+        
+        if (spatialHapticController == null)
+            spatialHapticController = FindObjectOfType<SpatialHapticController>();
+        
+        Debug.Log("ManualEnhancementController: System references found");
+    }
+    
+    void CheckTrialType()
+    {
+        if (SessionManager.Instance != null)
+        {
+            currentTrial = SessionManager.Instance.GetCurrentTrial();
+            isLLMTrial = currentTrial == "short_llm" || currentTrial == "long_llm";
+            
+            // Subscribe to trial changes
+            SessionManager.OnTrialChanged += OnTrialChanged;
+        }
+        else
+        {
+            Debug.LogWarning("ManualEnhancementController: No SessionManager found");
+            currentTrial = "unknown";
+            isLLMTrial = false;
+        }
+    }
+    
+    void OnTrialChanged(string newTrial)
+    {
+        currentTrial = newTrial;
+        bool wasLLMTrial = isLLMTrial;
+        isLLMTrial = newTrial == "short_llm" || newTrial == "long_llm";
+        
+        if (isLLMTrial && !wasLLMTrial)
+        {
+            Debug.Log($"ManualEnhancementController: Switched to LLM trial ({newTrial}) - enabling manual control");
+            StartCoroutine(ApplyManualSettingsWithDelay());
+        }
+        else if (!isLLMTrial && wasLLMTrial)
+        {
+            Debug.Log($"ManualEnhancementController: Switched away from LLM trial ({newTrial}) - disabling manual control");
+            DisableManualControl();
+        }
+    }
+    
+    IEnumerator ApplyManualSettingsWithDelay()
+    {
+        // Wait for other systems to initialize
+        yield return new WaitForSeconds(1f);
+        
+        ApplyAllManualSettings();
+        manualControlActive = true;
+        settingsApplied = true;
+        
+        Debug.Log("ManualEnhancementController: All manual settings applied for LLM trial");
+    }
+    
+    void ApplyAllManualSettings()
+    {
+        // Disable automatic enhancement systems first
+        DisableAutomaticSystems();
+        
+        // Apply visual enhancements
+        ApplyVisualSettings();
+        
+        // Apply audio enhancements
+        ApplyAudioSettings();
+        
+        // Apply haptic enhancements
+        ApplyHapticSettings();
+        
+        Debug.Log("ManualEnhancementController: Applied all manual enhancement settings");
+    }
+    
+    void DisableAutomaticSystems()
+    {
+        // Disable UnifiedEnhancementController if it exists
+        UnifiedEnhancementController autoController = FindObjectOfType<UnifiedEnhancementController>();
+        if (autoController != null)
+        {
+            autoController.DisableAllEnhancements();
+            autoController.enabled = false;
+            Debug.Log("ManualEnhancementController: Disabled automatic UnifiedEnhancementController");
+        }
+        
+        // Disable automatic audio and haptic systems
+        if (unifiedAudioController != null)
+        {
+            unifiedAudioController.DisableAudioSystem();
+        }
+        
+        if (spatialHapticController != null)
+        {
+            spatialHapticController.DisableHaptic();
+        }
+    }
+    
+    void ApplyVisualSettings()
+    {
+        Debug.Log("=== APPLYING VISUAL SETTINGS ===");
+        
+        // Navigation Line Settings
+        if (enableNavigationLineControl && routeGuideSystem != null)
+        {
+            routeGuideSystem.SetLineWidth(navigationLineWidth);
+            routeGuideSystem.SetRouteOpacity(navigationLineOpacity);
+            routeGuideSystem.SetRouteColor(navigationLineColor);
+            routeGuideSystem.SetRouteVisibility(true);
+            
+            Debug.Log($"Navigation Line: width={navigationLineWidth:F2}, opacity={navigationLineOpacity:F2}, color={navigationLineColor}");
+        }
+        
+        // Bounding Box Settings
+        if (enableBoundingBoxControl && dynamicObjectManager != null)
+        {
+            dynamicObjectManager.showBoundingBoxes = true;
+            dynamicObjectManager.lineWidth = boundingBoxLineWidth;
+            dynamicObjectManager.boundingBoxColor = new Color(boundingBoxColor.r, boundingBoxColor.g, boundingBoxColor.b, boundingBoxOpacity);
+            dynamicObjectManager.boundingBoxRange = boundingBoxRange;
+            
+            Debug.Log($"Bounding Boxes: width={boundingBoxLineWidth:F3}, opacity={boundingBoxOpacity:F2}, range={boundingBoxRange:F1}m");
+        }
+    }
+    
+    void ApplyAudioSettings()
+    {
+        Debug.Log("=== APPLYING AUDIO SETTINGS ===");
+        
+        if (unifiedAudioController == null)
+        {
+            Debug.LogWarning("ManualEnhancementController: No UnifiedAudioController found - audio settings skipped");
+            return;
+        }
+        
+        switch (audioMode)
+        {
+            case AudioEnhancementMode.TTSSpeech:
+                Debug.Log("Audio Mode: TTS Speech");
+                SetupManualTTSMode();
+                break;
+                
+            case AudioEnhancementMode.StandardSpearcons:
+                Debug.Log("Audio Mode: Standard Spearcons (all objects)");
+                SetupManualSpearconMode(false);
+                break;
+                
+            case AudioEnhancementMode.DistanceFilteredSpearcons:
+                Debug.Log($"Audio Mode: Distance Filtered Spearcons (beyond {spearconDistanceThreshold}m)");
+                SetupManualSpearconMode(true);
+                break;
+                
+            case AudioEnhancementMode.Disabled:
+            default:
+                Debug.Log("Audio Mode: Disabled");
+                unifiedAudioController.DisableAudioSystem();
+                break;
+        }
+    }
+    
+    void SetupManualTTSMode()
+    {
+        // Enable manual mode and override settings
+        unifiedAudioController.EnableManualMode();
+        unifiedAudioController.speechAnnouncementInterval = speechInterval;
+        unifiedAudioController.speechDetectionRange = speechRange;
+        unifiedAudioController.SetMasterVolume(speechVolume);
+        
+        // Force TTS mode
+        unifiedAudioController.ForceAudioMode(UnifiedAudioController.AudioMode.FullSpeech);
+        
+        Debug.Log($"TTS Settings: interval={speechInterval}s, range={speechRange}m, volume={speechVolume:F2}");
+    }
+    
+    void SetupManualSpearconMode(bool useDistanceFiltering)
+    {
+        // Enable manual mode and override settings
+        unifiedAudioController.EnableManualMode();
+        unifiedAudioController.spearconAnnouncementInterval = spearconInterval;
+        unifiedAudioController.spearconDetectionRange = spearconRange;
+        unifiedAudioController.SetMasterVolume(spearconVolume);
+        
+        // Set distance threshold if using filtering
+        if (useDistanceFiltering)
+        {
+            unifiedAudioController.SetObjectClarityDistance(spearconDistanceThreshold);
+            unifiedAudioController.ForceAudioMode(UnifiedAudioController.AudioMode.LimitedSpearcons);
+        }
+        else
+        {
+            unifiedAudioController.ForceAudioMode(UnifiedAudioController.AudioMode.StandardSpearcons);
+        }
+        
+        string filterInfo = useDistanceFiltering ? $", threshold={spearconDistanceThreshold}m" : "";
+        Debug.Log($"Spearcon Settings: interval={spearconInterval}s, range={spearconRange}m, volume={spearconVolume:F2}{filterInfo}");
+    }
+    
+    void ApplyHapticSettings()
+    {
+        Debug.Log("=== APPLYING HAPTIC SETTINGS ===");
+        
+        if (spatialHapticController == null)
+        {
+            Debug.LogWarning("ManualEnhancementController: No SpatialHapticController found - haptic settings skipped");
+            return;
+        }
+        
+        if (enableHapticFeedback)
+        {
+            // Apply global haptic settings
+            spatialHapticController.SetDetectionRange(hapticDetectionRange);
+            
+            // Apply individual haptic event settings
+            ApplyHapticEventSettings();
+            
+            // Enable the haptic system
+            spatialHapticController.EnableHaptic();
+            
+            Debug.Log($"Haptic System: enabled, range={hapticDetectionRange}m, {hapticEvents.Length} events configured");
+        }
+        else
+        {
+            spatialHapticController.DisableHaptic();
+            Debug.Log("Haptic System: disabled");
+        }
+    }
+    
+    void ApplyHapticEventSettings()
+    {
+        // Note: You'll need to add public methods to SpatialHapticController to set these
+        // For now, we'll log what should be applied
+        
+        Debug.Log("Haptic Event Settings:");
+        foreach (HapticEventConfig config in hapticEvents)
+        {
+            Debug.Log($"  {config.eventName}: min={config.minIntensity:F2}, max={config.maxIntensity:F2}, interval={config.feedbackInterval:F1}s");
+            
+            // You'll need to add these methods to SpatialHapticController:
+            // spatialHapticController.SetEventIntensityRange(config.eventName, config.minIntensity, config.maxIntensity);
+            // spatialHapticController.SetEventFeedbackInterval(config.eventName, config.feedbackInterval);
+        }
+    }
+    
+    void DisableManualControl()
+    {
+        manualControlActive = false;
+        settingsApplied = false;
+        
+        // Disable all manual enhancements
+        if (routeGuideSystem != null)
+        {
+            routeGuideSystem.SetRouteVisibility(false);
+        }
+        
+        if (dynamicObjectManager != null)
+        {
+            dynamicObjectManager.showBoundingBoxes = false;
+        }
+        
+        if (unifiedAudioController != null)
+        {
+            unifiedAudioController.DisableAudioSystem();
+        }
+        
+        if (spatialHapticController != null)
+        {
+            spatialHapticController.DisableHaptic();
+        }
+        
+        // Re-enable automatic systems
+        UnifiedEnhancementController autoController = FindObjectOfType<UnifiedEnhancementController>();
+        if (autoController != null)
+        {
+            autoController.enabled = true;
+        }
+        
+        Debug.Log("ManualEnhancementController: Manual control disabled - restored automatic systems");
+    }
+    
+    // Runtime update methods for inspector changes
+    void Update()
+    {
+        // Apply settings in real-time when changed in inspector during LLM trials
+        if (manualControlActive && Application.isPlaying)
+        {
+            UpdateVisualSettings();
+        }
+    }
+    
+    void UpdateVisualSettings()
+    {
+        // Update navigation line if settings changed
+        if (enableNavigationLineControl && routeGuideSystem != null)
+        {
+            routeGuideSystem.SetLineWidth(navigationLineWidth);
+            routeGuideSystem.SetRouteOpacity(navigationLineOpacity);
+            
+            // Update color if it has an alpha component
+            Color colorWithOpacity = new Color(navigationLineColor.r, navigationLineColor.g, navigationLineColor.b, navigationLineOpacity);
+            routeGuideSystem.SetRouteColor(colorWithOpacity);
+        }
+        
+        // Update bounding boxes if settings changed
+        if (enableBoundingBoxControl && dynamicObjectManager != null)
+        {
+            dynamicObjectManager.lineWidth = boundingBoxLineWidth;
+            dynamicObjectManager.boundingBoxRange = boundingBoxRange;
+            
+            Color colorWithOpacity = new Color(boundingBoxColor.r, boundingBoxColor.g, boundingBoxColor.b, boundingBoxOpacity);
+            dynamicObjectManager.boundingBoxColor = colorWithOpacity;
+        }
+    }
+    
+    // Context menu methods for testing
+    [ContextMenu("Manual: Apply All Settings Now")]
+    public void ManualApplyAllSettings()
+    {
+        if (isLLMTrial)
+        {
+            ApplyAllManualSettings();
+            Debug.Log("ManualEnhancementController: Manually applied all settings");
+        }
+        else
+        {
+            Debug.LogWarning("ManualEnhancementController: Cannot apply settings - not in an LLM trial");
+        }
+    }
+    
+    [ContextMenu("Test: Force Enable Manual Control")]
+    public void TestForceEnableManualControl()
+    {
+        isLLMTrial = true;
+        currentTrial = "short_llm";
+        ApplyAllManualSettings();
+        manualControlActive = true;
+        Debug.Log("ManualEnhancementController: Force enabled manual control for testing");
+    }
+    
+    [ContextMenu("Test: Apply Visual Settings Only")]
+    public void TestApplyVisualOnly()
+    {
+        ApplyVisualSettings();
+        Debug.Log("ManualEnhancementController: Applied visual settings only");
+    }
+    
+    [ContextMenu("Test: Apply Audio Settings Only")]
+    public void TestApplyAudioOnly()
+    {
+        ApplyAudioSettings();
+        Debug.Log("ManualEnhancementController: Applied audio settings only");
+    }
+    
+    [ContextMenu("Test: Apply Haptic Settings Only")]
+    public void TestApplyHapticOnly()
+    {
+        ApplyHapticSettings();
+        Debug.Log("ManualEnhancementController: Applied haptic settings only");
+    }
+    
+    [ContextMenu("Debug: Show Current Settings")]
+    public void DebugShowCurrentSettings()
+    {
+        Debug.Log("=== MANUAL ENHANCEMENT CONTROLLER STATUS ===");
+        Debug.Log($"Current Trial: {currentTrial}");
+        Debug.Log($"Is LLM Trial: {isLLMTrial}");
+        Debug.Log($"Manual Control Active: {manualControlActive}");
+        Debug.Log($"Settings Applied: {settingsApplied}");
+        Debug.Log("");
+        
+        Debug.Log("VISUAL SETTINGS:");
+        Debug.Log($"  Navigation Line: {(enableNavigationLineControl ? "ENABLED" : "DISABLED")}");
+        if (enableNavigationLineControl)
+        {
+            Debug.Log($"    Width: {navigationLineWidth:F2}, Opacity: {navigationLineOpacity:F2}");
+        }
+        Debug.Log($"  Bounding Boxes: {(enableBoundingBoxControl ? "ENABLED" : "DISABLED")}");
+        if (enableBoundingBoxControl)
+        {
+            Debug.Log($"    Width: {boundingBoxLineWidth:F3}, Opacity: {boundingBoxOpacity:F2}, Range: {boundingBoxRange:F1}m");
+        }
+        Debug.Log("");
+        
+        Debug.Log($"AUDIO SETTINGS:");
+        Debug.Log($"  Mode: {audioMode}");
+        if (audioMode == AudioEnhancementMode.TTSSpeech)
+        {
+            Debug.Log($"    Interval: {speechInterval}s, Range: {speechRange}m, Volume: {speechVolume:F2}");
+        }
+        else if (audioMode != AudioEnhancementMode.Disabled)
+        {
+            Debug.Log($"    Interval: {spearconInterval}s, Range: {spearconRange}m, Volume: {spearconVolume:F2}");
+            if (audioMode == AudioEnhancementMode.DistanceFilteredSpearcons)
+            {
+                Debug.Log($"    Distance Threshold: {spearconDistanceThreshold}m");
+            }
+        }
+        Debug.Log("");
+        
+        Debug.Log($"HAPTIC SETTINGS:");
+        Debug.Log($"  Enabled: {enableHapticFeedback}");
+        if (enableHapticFeedback)
+        {
+            Debug.Log($"  Detection Range: {hapticDetectionRange}m");
+            Debug.Log($"  Configured Events: {hapticEvents.Length}");
+            foreach (HapticEventConfig config in hapticEvents)
+            {
+                Debug.Log($"    {config.eventName}: min={config.minIntensity:F2}, max={config.maxIntensity:F2}, interval={config.feedbackInterval:F1}s");
+            }
+        }
+    }
+    
+    [ContextMenu("Debug: Check System References")]
+    public void DebugCheckSystemReferences()
+    {
+        Debug.Log("=== SYSTEM REFERENCES STATUS ===");
+        Debug.Log($"RouteGuideSystem: {(routeGuideSystem != null ? "FOUND" : "MISSING")}");
+        Debug.Log($"DynamicObjectManager: {(dynamicObjectManager != null ? "FOUND" : "MISSING")}");
+        Debug.Log($"UnifiedAudioController: {(unifiedAudioController != null ? "FOUND" : "MISSING")}");
+        Debug.Log($"SpatialHapticController: {(spatialHapticController != null ? "FOUND" : "MISSING")}");
+        Debug.Log($"SessionManager: {(SessionManager.Instance != null ? "FOUND" : "MISSING")}");
+        
+        if (SessionManager.Instance != null)
+        {
+            Debug.Log($"Current Trial from SessionManager: {SessionManager.Instance.GetCurrentTrial()}");
+        }
+    }
+    
+    void OnDestroy()
+    {
+        // Clean up event subscriptions
+        if (SessionManager.Instance != null)
+        {
+            SessionManager.OnTrialChanged -= OnTrialChanged;
+        }
+    }
+}

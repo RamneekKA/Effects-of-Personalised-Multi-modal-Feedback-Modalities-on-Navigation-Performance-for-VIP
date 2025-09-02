@@ -6,11 +6,19 @@ using UnityEngine.SceneManagement;
 using System.Linq;
 
 /// <summary>
-/// Simplified Session Manager without auto-advance functionality
-/// Provides manual control over trial types and session management
+/// Simplified Session Manager with Cross-Platform Data Storage
+/// Automatically handles Mac/Windows/Linux file path differences
+/// Uses Documents folder on all platforms for easy access and no permission issues
 /// </summary>
 public class SessionManager : MonoBehaviour
 {
+    [Header("Cross-Platform Data Settings")]
+    [Tooltip("Custom data folder name (will be created in Documents folder)")]
+    public string customDataFolderName = "VisionAssessmentData";
+    
+    [Tooltip("Use custom Documents folder location instead of Unity's persistentDataPath")]
+    public bool useDocumentsFolder = true;
+    
     [Header("Session Configuration")]
     [Tooltip("Manually assigned User ID (e.g., User001)")]
     public string userID = "User001";
@@ -29,6 +37,7 @@ public class SessionManager : MonoBehaviour
     [Header("Debug Information")]
     [SerializeField] private UserSession currentSession;
     [SerializeField] private string sessionFolderPath;
+    [SerializeField] private string baseDataPath;
     [SerializeField] private bool preAnalysisCompleted = false;
 
     // Trial definitions (for reference only - no auto-sequencing)
@@ -56,11 +65,82 @@ public class SessionManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            InitializeCrossPlatformDataPath();
             InitializeOrLoadSession();
         }
         else
         {
             Destroy(gameObject);
+        }
+    }
+    
+    /// <summary>
+    /// Initialize the cross-platform data path
+    /// Uses Documents folder on all platforms for easy access and no permission issues
+    /// </summary>
+    void InitializeCrossPlatformDataPath()
+    {
+        if (useDocumentsFolder)
+        {
+            // Get the user's Documents folder (works on Windows, Mac, Linux)
+            string documentsPath = GetDocumentsPath();
+            baseDataPath = Path.Combine(documentsPath, customDataFolderName);
+        }
+        else
+        {
+            // Fallback to Unity's persistent data path
+            baseDataPath = Path.Combine(Application.persistentDataPath, "NavigationData");
+        }
+        
+        // Ensure the base directory exists
+        try
+        {
+            Directory.CreateDirectory(baseDataPath);
+            Debug.Log($"Cross-platform data path initialized: {baseDataPath}");
+            Debug.Log($"Platform: {Application.platform}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to create data directory: {e.Message}");
+            Debug.LogError($"Falling back to persistent data path...");
+            
+            // Fallback to Unity's path if Documents folder fails
+            baseDataPath = Path.Combine(Application.persistentDataPath, "NavigationData");
+            Directory.CreateDirectory(baseDataPath);
+        }
+    }
+    
+    /// <summary>
+    /// Get the Documents folder path for the current platform
+    /// </summary>
+    string GetDocumentsPath()
+    {
+        switch (Application.platform)
+        {
+            case RuntimePlatform.WindowsPlayer:
+            case RuntimePlatform.WindowsEditor:
+                // Windows: Use standard Documents folder
+                return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                
+            case RuntimePlatform.OSXPlayer:
+            case RuntimePlatform.OSXEditor:
+                // Mac: Use standard Documents folder
+                return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                
+            case RuntimePlatform.LinuxPlayer:
+            case RuntimePlatform.LinuxEditor:
+                // Linux: Use standard Documents folder or fallback to home
+                string linuxDocs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                if (string.IsNullOrEmpty(linuxDocs))
+                {
+                    string home = Environment.GetEnvironmentVariable("HOME");
+                    return Path.Combine(home, "Documents");
+                }
+                return linuxDocs;
+                
+            default:
+                // Unknown platform: fallback to Unity's persistent data path
+                return Application.persistentDataPath;
         }
     }
     
@@ -93,6 +173,7 @@ public class SessionManager : MonoBehaviour
         SaveSessionData();
         
         Debug.Log($"Session Manager initialized for {currentSession.userID}");
+        Debug.Log($"Base data path: {baseDataPath}");
         Debug.Log($"Session path: {sessionFolderPath}");
         Debug.Log($"Current trial: {currentSession.currentTrial}");
         
@@ -104,16 +185,16 @@ public class SessionManager : MonoBehaviour
     {
         Debug.Log($"Looking for existing session for user: {userID}");
         
-        string baseNavigationPath = Path.Combine(Application.persistentDataPath, "NavigationData", "Users");
+        string usersPath = Path.Combine(baseDataPath, "Users");
         
-        if (!Directory.Exists(baseNavigationPath))
+        if (!Directory.Exists(usersPath))
         {
             Debug.Log("No Users folder found, will create new session");
             return false;
         }
         
         // Find session folders that start with the userID
-        string[] sessionFolders = Directory.GetDirectories(baseNavigationPath)
+        string[] sessionFolders = Directory.GetDirectories(usersPath)
             .Where(dir => Path.GetFileName(dir).StartsWith(userID + "_"))
             .OrderByDescending(dir => Directory.GetCreationTime(dir)) // Most recent first
             .ToArray();
@@ -192,8 +273,8 @@ public class SessionManager : MonoBehaviour
     
     void CreateSessionFolders()
     {
-        string basePath = Path.Combine(Application.persistentDataPath, "NavigationData", "Users");
-        sessionFolderPath = Path.Combine(basePath, $"{currentSession.userID}_{currentSession.sessionDateTime}");
+        string usersPath = Path.Combine(baseDataPath, "Users");
+        sessionFolderPath = Path.Combine(usersPath, $"{currentSession.userID}_{currentSession.sessionDateTime}");
         currentSession.sessionPath = sessionFolderPath;
         
         // Create main session folder
@@ -226,6 +307,7 @@ public class SessionManager : MonoBehaviour
         }
         
         Debug.Log($"Created session folder structure at: {sessionFolderPath}");
+        Debug.Log($"Full path: {Path.GetFullPath(sessionFolderPath)}");
     }
     
     // Manual trial setting method
@@ -353,6 +435,14 @@ public class SessionManager : MonoBehaviour
         return sessionFolderPath;
     }
     
+    /// <summary>
+    /// Get the base data path being used (useful for debugging path issues)
+    /// </summary>
+    public string GetBaseDataPath()
+    {
+        return baseDataPath;
+    }
+    
     public string GetTrialDataPath(string trialType)
     {
         switch (trialType)
@@ -396,6 +486,171 @@ public class SessionManager : MonoBehaviour
             return "long";
         else
             return "none"; // Assessment trials
+    }
+    
+    // MIGRATION HELPER METHODS
+    
+    [ContextMenu("Migration: Show Current Data Locations")]
+    public void ShowCurrentDataLocations()
+    {
+        Debug.Log("=== DATA LOCATION INFORMATION ===");
+        Debug.Log($"Current Base Data Path: {baseDataPath}");
+        Debug.Log($"Full Path: {Path.GetFullPath(baseDataPath)}");
+        Debug.Log($"Using Documents Folder: {useDocumentsFolder}");
+        Debug.Log($"Platform: {Application.platform}");
+        
+        if (useDocumentsFolder)
+        {
+            string documentsPath = GetDocumentsPath();
+            Debug.Log($"Documents Folder: {documentsPath}");
+            Debug.Log($"Custom Folder Name: {customDataFolderName}");
+        }
+        else
+        {
+            Debug.Log($"Unity Persistent Data Path: {Application.persistentDataPath}");
+        }
+        
+        Debug.Log($"Current Session Path: {sessionFolderPath}");
+        
+        // Show if directories exist
+        Debug.Log($"Base Path Exists: {Directory.Exists(baseDataPath)}");
+        if (!string.IsNullOrEmpty(sessionFolderPath))
+        {
+            Debug.Log($"Session Path Exists: {Directory.Exists(sessionFolderPath)}");
+        }
+    }
+    
+    [ContextMenu("Migration: List Existing Sessions")]
+    public void ListExistingSessions()
+    {
+        string usersPath = Path.Combine(baseDataPath, "Users");
+        
+        if (Directory.Exists(usersPath))
+        {
+            string[] sessionFolders = Directory.GetDirectories(usersPath);
+            Debug.Log($"Found {sessionFolders.Length} existing sessions:");
+            
+            foreach (string folder in sessionFolders)
+            {
+                string folderName = Path.GetFileName(folder);
+                DateTime createTime = Directory.GetCreationTime(folder);
+                Debug.Log($"  - {folderName} (Created: {createTime})");
+            }
+        }
+        else
+        {
+            Debug.Log("No existing sessions found");
+        }
+    }
+    
+    [ContextMenu("Migration: Copy From Old Location")]
+    public void CopyFromOldLocation()
+    {
+        // This helps migrate data from Unity's persistentDataPath to Documents folder
+        string oldBasePath = Path.Combine(Application.persistentDataPath, "NavigationData");
+        
+        if (!Directory.Exists(oldBasePath))
+        {
+            Debug.Log("No old navigation data found to migrate");
+            return;
+        }
+        
+        if (baseDataPath == oldBasePath)
+        {
+            Debug.Log("Current path is the same as old path - no migration needed");
+            return;
+        }
+        
+        Debug.Log($"Migrating data from: {oldBasePath}");
+        Debug.Log($"                 to: {baseDataPath}");
+        
+        try
+        {
+            CopyDirectory(oldBasePath, baseDataPath);
+            Debug.Log("Data migration completed successfully!");
+            Debug.Log("You can now delete the old data if desired:");
+            Debug.Log($"Old location: {oldBasePath}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Migration failed: {e.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// Recursively copy a directory and all its contents
+    /// </summary>
+    void CopyDirectory(string sourceDir, string targetDir)
+    {
+        Directory.CreateDirectory(targetDir);
+        
+        // Copy all files
+        foreach (string file in Directory.GetFiles(sourceDir))
+        {
+            string fileName = Path.GetFileName(file);
+            string targetFile = Path.Combine(targetDir, fileName);
+            
+            if (!File.Exists(targetFile)) // Don't overwrite existing files
+            {
+                File.Copy(file, targetFile);
+                Debug.Log($"Copied file: {fileName}");
+            }
+        }
+        
+        // Recursively copy subdirectories
+        foreach (string subDir in Directory.GetDirectories(sourceDir))
+        {
+            string subDirName = Path.GetFileName(subDir);
+            string targetSubDir = Path.Combine(targetDir, subDirName);
+            CopyDirectory(subDir, targetSubDir);
+        }
+    }
+    
+    [ContextMenu("Debug: Test Cross-Platform Paths")]
+    public void TestCrossPlatformPaths()
+    {
+        Debug.Log("=== CROSS-PLATFORM PATH TESTING ===");
+        
+        // Test Documents folder access
+        try
+        {
+            string docsPath = GetDocumentsPath();
+            Debug.Log($"Documents Path: {docsPath}");
+            Debug.Log($"Documents Exists: {Directory.Exists(docsPath)}");
+            
+            // Test creating a test folder
+            string testPath = Path.Combine(docsPath, "UnityPathTest");
+            Directory.CreateDirectory(testPath);
+            
+            // Test writing a file
+            string testFile = Path.Combine(testPath, "test.txt");
+            File.WriteAllText(testFile, "Platform test successful");
+            
+            // Test reading the file
+            string content = File.ReadAllText(testFile);
+            Debug.Log($"File test result: {content}");
+            
+            // Clean up
+            File.Delete(testFile);
+            Directory.Delete(testPath);
+            
+            Debug.Log("Documents folder access test: PASSED");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Documents folder test failed: {e.Message}");
+        }
+        
+        // Test Unity persistent data path
+        try
+        {
+            Debug.Log($"Unity Persistent Path: {Application.persistentDataPath}");
+            Debug.Log($"Unity Persistent Exists: {Directory.Exists(Application.persistentDataPath)}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Unity persistent path test failed: {e.Message}");
+        }
     }
     
     // CONTEXT MENU METHODS FOR MANUAL CONTROL
@@ -469,7 +724,8 @@ public class SessionManager : MonoBehaviour
         Debug.Log($"SESSION: {currentSession.sessionDateTime}");
         Debug.Log($"CURRENT TRIAL: {currentSession.currentTrial}");
         Debug.Log($"COMPLETED: {string.Join(", ", currentSession.completedTrials)}");
-        Debug.Log($"PATH: {sessionFolderPath}");
+        Debug.Log($"BASE PATH: {baseDataPath}");
+        Debug.Log($"SESSION PATH: {sessionFolderPath}");
         Debug.Log($"FINISHED: {currentSession.sessionCompleted}");
         Debug.Log($"PRE-ANALYSIS: {preAnalysisCompleted}");
     }

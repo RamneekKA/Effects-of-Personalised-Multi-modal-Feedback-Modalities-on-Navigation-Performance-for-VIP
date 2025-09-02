@@ -8,6 +8,7 @@ using System.Linq;
 /// Unified Enhancement Controller - Single point of control for all visual enhancements
 /// Replaces: AlgorithmicEnhancementIntegrator, BoundingBoxEnhancementController, NavigationLineEnhancementController
 /// Handles both bounding boxes and navigation line enhancements in one clean system
+/// UPDATED: Only applies enhancements to short_algorithmic and long_algorithmic trials
 /// </summary>
 public class UnifiedEnhancementController : MonoBehaviour
 {
@@ -79,19 +80,24 @@ public class UnifiedEnhancementController : MonoBehaviour
         {
             currentTrialType = SessionManager.Instance.GetCurrentTrial();
             
+            // ONLY apply enhancements for algorithmic trials
             if (IsAlgorithmicTrial(currentTrialType))
             {
-                yield return new WaitForSeconds(0.5f); // Give other systems time to initialize
+                Debug.Log($"UnifiedEnhancementController: Applying algorithmic enhancements for trial: {currentTrialType}");
+                yield return new WaitForSeconds(0.5f);
                 StartCoroutine(ApplyAlgorithmicEnhancements());
             }
             else
             {
-                Debug.Log($"UnifiedEnhancementController: Trial '{currentTrialType}' does not use algorithmic enhancements");
+                Debug.Log($"UnifiedEnhancementController: No enhancements applied - trial '{currentTrialType}' is not an algorithmic enhancement trial");
+                // Explicitly disable any existing enhancements
+                DisableAllEnhancements();
             }
         }
         else
         {
-            Debug.LogWarning("UnifiedEnhancementController: SessionManager not found - running in standalone mode");
+            Debug.LogWarning("UnifiedEnhancementController: SessionManager not found - no enhancements applied");
+            DisableAllEnhancements();
         }
         
         systemInitialized = true;
@@ -99,6 +105,7 @@ public class UnifiedEnhancementController : MonoBehaviour
     
     bool IsAlgorithmicTrial(string trialType)
     {
+        // ONLY apply algorithmic enhancements to these specific trials
         return trialType == "short_algorithmic" || trialType == "long_algorithmic";
     }
     
@@ -448,6 +455,32 @@ public class UnifiedEnhancementController : MonoBehaviour
             Debug.Log($"Current Settings: {currentEnhancementSettings.decisionReason}");
             Debug.Log($"Navigation Line: {currentEnhancementSettings.enhanceNavigationLine} (width: {currentEnhancementSettings.navigationLineWidth:F2}, opacity: {currentEnhancementSettings.navigationLineOpacity:F0})");
             Debug.Log($"Bounding Boxes: {currentEnhancementSettings.enableBoundingBoxes} (width: {currentEnhancementSettings.boundingBoxLineWidth:F3}, opacity: {currentEnhancementSettings.boundingBoxOpacity:F0})");
+        }
+    }
+    
+    [ContextMenu("Debug: Check Current Trial Enhancement Status")]
+    public void DebugCheckTrialEnhancementStatus()
+    {
+        string trial = SessionManager.Instance?.GetCurrentTrial() ?? "None";
+        bool shouldEnhance = IsAlgorithmicTrial(trial);
+        
+        Debug.Log($"=== TRIAL ENHANCEMENT CHECK ===");
+        Debug.Log($"Current Trial: {trial}");
+        Debug.Log($"Should Apply Enhancements: {shouldEnhance}");
+        Debug.Log($"Enhancements Currently Active: {enhancementsActive}");
+        Debug.Log($"System Initialized: {systemInitialized}");
+        
+        if (shouldEnhance && !enhancementsActive && systemInitialized)
+        {
+            Debug.LogWarning("Enhancements should be active but are not! Check assessment completion.");
+        }
+        else if (!shouldEnhance && enhancementsActive)
+        {
+            Debug.LogWarning("Enhancements are active but shouldn't be for this trial type!");
+        }
+        else
+        {
+            Debug.Log("Enhancement status matches trial requirements ✓");
         }
     }
     

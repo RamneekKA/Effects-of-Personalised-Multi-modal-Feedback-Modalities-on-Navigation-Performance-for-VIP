@@ -34,7 +34,7 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
     {
         if (string.IsNullOrEmpty(geminiApiKey) || geminiApiKey == "YOUR_GEMINI_API_KEY_HERE")
         {
-            Debug.LogError("Ã¢ÂÅ’ Gemini API key not set! Get one from https://makersuite.google.com/app/apikey");
+            Debug.LogError("ÃƒÂ¢Ã‚ÂÃ…â€™ Gemini API key not set! Get one from https://makersuite.google.com/app/apikey");
         }
     }
     
@@ -57,18 +57,18 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
         
         if (currentUserSession == null)
         {
-            Debug.LogError("Ã¢ÂÅ’ No current session found in SessionManager!");
+            Debug.LogError("ÃƒÂ¢Ã‚ÂÃ…â€™ No current session found in SessionManager!");
             return;
         }
         
-        Debug.Log($"Ã°Å¸â€Â Looking for navigation data in SessionManager session: {currentUserSession.userID}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Looking for navigation data in SessionManager session: {currentUserSession.userID}");
         
         // Look for completed navigation trials
         List<string> completedTrials = currentUserSession.completedTrials;
         
         if (completedTrials.Count == 0)
         {
-            Debug.LogError("Ã¢ÂÅ’ No completed trials found!");
+            Debug.LogError("ÃƒÂ¢Ã‚ÂÃ…â€™ No completed trials found!");
             return;
         }
         
@@ -77,7 +77,7 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
         
         if (string.IsNullOrEmpty(latestTrial))
         {
-            Debug.LogError("Ã¢ÂÅ’ No navigation trials found in completed trials!");
+            Debug.LogError("ÃƒÂ¢Ã‚ÂÃ…â€™ No navigation trials found in completed trials!");
             return;
         }
         
@@ -96,7 +96,7 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
         {
             if (completedTrials.Contains(navTrial))
             {
-                Debug.Log($"Ã°Å¸â€œÅ  Found latest navigation trial: {navTrial}");
+                Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…  Found latest navigation trial: {navTrial}");
                 return navTrial;
             }
         }
@@ -106,17 +106,17 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
     
     void AnalyzeLegacySession()
     {
-        Debug.LogWarning("Ã¢Å¡ Ã¯Â¸Â Using legacy session analysis (old folder structure)");
+        Debug.LogWarning("ÃƒÂ¢Ã…Â¡ ÃƒÂ¯Ã‚Â¸Ã‚Â Using legacy session analysis (old folder structure)");
         
         // FIXED: Look in the correct base path for session folders
         string baseNavigationPath = Path.Combine(Application.persistentDataPath, "NavigationData");
         string usersPath = Path.Combine(baseNavigationPath, "Users");
         
-        Debug.Log($"Ã°Å¸â€Â Looking for session folders in: {usersPath}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Looking for session folders in: {usersPath}");
         
         if (!Directory.Exists(usersPath))
         {
-            Debug.LogError($"Ã¢ÂÅ’ Users directory not found at: {usersPath}");
+            Debug.LogError($"ÃƒÂ¢Ã‚ÂÃ…â€™ Users directory not found at: {usersPath}");
             return;
         }
         
@@ -128,19 +128,19 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
         
         if (sessionFolders.Length == 0)
         {
-            Debug.LogError("Ã¢ÂÅ’ No user session folders found!");
+            Debug.LogError("ÃƒÂ¢Ã‚ÂÃ…â€™ No user session folders found!");
             return;
         }
         
         string latestSessionFolder = sessionFolders[0];
-        Debug.Log($"Ã°Å¸â€œÂ Found latest session folder: {Path.GetFileName(latestSessionFolder)}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Found latest session folder: {Path.GetFileName(latestSessionFolder)}");
         
         // Look for navigation trials in this session
         string foundTrialPath = FindNavigationTrialInSession(latestSessionFolder);
         
         if (string.IsNullOrEmpty(foundTrialPath))
         {
-            Debug.LogError("Ã¢ÂÅ’ No navigation data found in any trial folders!");
+            Debug.LogError("ÃƒÂ¢Ã‚ÂÃ…â€™ No navigation data found in any trial folders!");
             return;
         }
         
@@ -167,37 +167,37 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
             string trialFolderPath = Path.Combine(sessionFolder, trialFolders[trialType]);
             string navigationDataPath = Path.Combine(trialFolderPath, "navigation_data.json");
             
-            Debug.Log($"Ã°Å¸â€Â Checking for navigation data at: {navigationDataPath}");
+            Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Checking for navigation data at: {navigationDataPath}");
             
             if (File.Exists(navigationDataPath))
             {
-                Debug.Log($"Ã¢Å“â€¦ Found navigation data for trial: {trialType}");
+                Debug.Log($"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Found navigation data for trial: {trialType}");
                 return trialFolderPath;
             }
         }
         
-        Debug.LogWarning("Ã¢Å¡ Ã¯Â¸Â No navigation_data.json found in any trial folders");
+        Debug.LogWarning("ÃƒÂ¢Ã…Â¡ ÃƒÂ¯Ã‚Â¸Ã‚Â No navigation_data.json found in any trial folders");
         
         // List what's actually in the session folder for debugging
-        Debug.Log($"Ã°Å¸â€œÂ Contents of session folder {sessionFolder}:");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Contents of session folder {sessionFolder}:");
         if (Directory.Exists(sessionFolder))
         {
             string[] subFolders = Directory.GetDirectories(sessionFolder);
             foreach (string folder in subFolders)
             {
                 string folderName = Path.GetFileName(folder);
-                Debug.Log($"  Ã°Å¸â€œâ€š {folderName}");
+                Debug.Log($"  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Å¡ {folderName}");
                 
                 // Check if it has navigation data
                 string navDataPath = Path.Combine(folder, "navigation_data.json");
                 if (File.Exists(navDataPath))
                 {
-                    Debug.Log($"    Ã¢Å“â€¦ Has navigation_data.json");
+                    Debug.Log($"    ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Has navigation_data.json");
                     return folder; // Return this folder if it has navigation data
                 }
                 else
                 {
-                    Debug.Log($"    Ã¢ÂÅ’ No navigation_data.json");
+                    Debug.Log($"    ÃƒÂ¢Ã‚ÂÃ…â€™ No navigation_data.json");
                 }
             }
         }
@@ -209,23 +209,23 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
     {
         currentSessionPath = sessionPath;
         
-        Debug.Log($"Ã°Å¸â€Â Analyzing session from: {sessionPath}");
-        Debug.Log($"Ã°Å¸â€œÅ  Trial type: {trialType}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Analyzing session from: {sessionPath}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…  Trial type: {trialType}");
         
         // Load navigation data
         string jsonPath = Path.Combine(sessionPath, "navigation_data.json");
         if (!File.Exists(jsonPath))
         {
-            Debug.LogError($"Ã¢ÂÅ’ Navigation data not found at: {jsonPath}");
+            Debug.LogError($"ÃƒÂ¢Ã‚ÂÃ…â€™ Navigation data not found at: {jsonPath}");
             
             // List available files for debugging
             if (Directory.Exists(sessionPath))
             {
                 string[] files = Directory.GetFiles(sessionPath);
-                Debug.Log($"Ã°Å¸â€œÂ Available files in {sessionPath}:");
+                Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Available files in {sessionPath}:");
                 foreach (string file in files)
                 {
-                    Debug.Log($"  Ã¢â‚¬Â¢ {Path.GetFileName(file)}");
+                    Debug.Log($"  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {Path.GetFileName(file)}");
                 }
                 
                 // Also check subfolders
@@ -233,13 +233,13 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
                 foreach (string folder in subFolders)
                 {
                     string folderName = Path.GetFileName(folder);
-                    Debug.Log($"  Ã°Å¸â€œâ€š {folderName}/");
+                    Debug.Log($"  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Å¡ {folderName}/");
                     
                     // Check if subfolder has navigation data
                     string subNavPath = Path.Combine(folder, "navigation_data.json");
                     if (File.Exists(subNavPath))
                     {
-                        Debug.Log($"    Ã¢Å“â€¦ Found navigation_data.json in subfolder!");
+                        Debug.Log($"    ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Found navigation_data.json in subfolder!");
                         // Recursively analyze the subfolder instead
                         AnalyzeSessionFromPath(folder, trialType + "_subfolder");
                         return;
@@ -248,7 +248,7 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"Ã¢ÂÅ’ Directory does not exist: {sessionPath}");
+                Debug.LogError($"ÃƒÂ¢Ã‚ÂÃ…â€™ Directory does not exist: {sessionPath}");
             }
             return;
         }
@@ -256,9 +256,9 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
         string jsonData = File.ReadAllText(jsonPath);
         currentSession = JsonUtility.FromJson<NavigationSession>(jsonData);
         
-        Debug.Log($"Ã°Å¸â€œÅ  Starting analysis of session: {currentSession.sessionID}");
-        Debug.Log($"Ã°Å¸â€œË† Session data: {currentSession.totalDataPoints} data points over {(currentSession.endTime - currentSession.startTime):F1} seconds");
-        Debug.Log($"Ã°Å¸â€™Â¥ Total collisions: {currentSession.totalCollisions}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…  Starting analysis of session: {currentSession.sessionID}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‹â€  Session data: {currentSession.totalDataPoints} data points over {(currentSession.endTime - currentSession.startTime):F1} seconds");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¥ Total collisions: {currentSession.totalCollisions}");
         
         StartCoroutine(PerformGeminiAnalysis());
     }
@@ -388,7 +388,7 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
                 {
                     if (obj.distance < 2f && current.currentSpeed < 0.5f)
                     {
-                        problemAreas.Add($"Hesitation near {obj.className} at {obj.distance:F1}m, {obj.angle:F0}Ã‚Â° (t={current.timestamp:F1}s)");
+                        problemAreas.Add($"Hesitation near {obj.className} at {obj.distance:F1}m, {obj.angle:F0}Ãƒâ€šÃ‚Â° (t={current.timestamp:F1}s)");
                     }
                 }
             }
@@ -455,14 +455,14 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
         
         if (!Directory.Exists(screenshotPath))
         {
-            Debug.LogWarning($"Ã¢Å¡ Ã¯Â¸Â No Screenshots folder found at: {screenshotPath}");
+            Debug.LogWarning($"ÃƒÂ¢Ã…Â¡ ÃƒÂ¯Ã‚Â¸Ã‚Â No Screenshots folder found at: {screenshotPath}");
             return keyScreenshots;
         }
         
         // Get all screenshots
         string[] allScreenshots = Directory.GetFiles(screenshotPath, "*.png");
         
-        Debug.Log($"Ã°Å¸â€œÂ¸ Found {allScreenshots.Length} screenshots in {screenshotPath}");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¸ Found {allScreenshots.Length} screenshots in {screenshotPath}");
         
         // Priority: collision screenshots first
         List<string> collisionScreenshots = new List<string>();
@@ -491,7 +491,7 @@ public class GeminiNavigationAnalyzer : MonoBehaviour
             }
         }
         
-        Debug.Log($"Ã°Å¸â€œÂ· Selected {keyScreenshots.Count} key screenshots for analysis ({collisionScreenshots.Count} collision, {keyScreenshots.Count - collisionScreenshots.Count} regular)");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â· Selected {keyScreenshots.Count} key screenshots for analysis ({collisionScreenshots.Count} collision, {keyScreenshots.Count - collisionScreenshots.Count} regular)");
         return keyScreenshots;
     }
     
@@ -546,16 +546,16 @@ Provide your analysis in a structured format with specific evidence from the dat
     {
         if (string.IsNullOrEmpty(geminiApiKey) || geminiApiKey == "YOUR_GEMINI_API_KEY_HERE")
         {
-            Debug.LogError("Ã¢ÂÅ’ Gemini API key not configured");
+            Debug.LogError("ÃƒÂ¢Ã‚ÂÃ…â€™ Gemini API key not configured");
             yield break;
         }
         
         // Create Gemini request JSON with proper image encoding
         string requestJson = CreateGeminiRequestJson(prompt, screenshotPaths);
         
-        Debug.Log($"Ã°Å¸Å¡â‚¬ Sending analysis request to Gemini...");
-        Debug.Log($"Ã°Å¸â€œÅ  Request size: {requestJson.Length} characters");
-        Debug.Log($"Ã°Å¸â€œÂ¸ Including {screenshotPaths.Count} screenshots");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ Sending analysis request to Gemini...");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…  Request size: {requestJson.Length} characters");
+        Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¸ Including {screenshotPaths.Count} screenshots");
         
         using (UnityWebRequest request = new UnityWebRequest(geminiApiUrl + "?key=" + geminiApiKey, "POST"))
         {
@@ -573,7 +573,7 @@ Provide your analysis in a structured format with specific evidence from the dat
             }
             else
             {
-                Debug.LogError($"Ã¢ÂÅ’ Gemini API request failed: {request.error}");
+                Debug.LogError($"ÃƒÂ¢Ã‚ÂÃ…â€™ Gemini API request failed: {request.error}");
                 Debug.LogError($"Response Code: {request.responseCode}");
                 Debug.LogError($"Response: {request.downloadHandler.text}");
             }
@@ -602,7 +602,7 @@ Provide your analysis in a structured format with specific evidence from the dat
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"Ã¢Å¡ Ã¯Â¸Â Could not encode image {imagePath}: {e.Message}");
+                    Debug.LogWarning($"ÃƒÂ¢Ã…Â¡ ÃƒÂ¯Ã‚Â¸Ã‚Â Could not encode image {imagePath}: {e.Message}");
                 }
             }
         }
@@ -614,7 +614,7 @@ Provide your analysis in a structured format with specific evidence from the dat
     
     void ProcessGeminiResponse(string response)
     {
-        Debug.Log($"Ã¢Å“â€¦ Received Gemini analysis response");
+        Debug.Log($"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Received Gemini analysis response");
         
         try
         {
@@ -646,8 +646,8 @@ Provide your analysis in a structured format with specific evidence from the dat
                 
                 File.WriteAllText(analysisPath, enhancedAnalysis.ToString());
                 
-                Debug.Log($"Ã°Å¸â€œâ€ž Analysis saved to: {analysisPath}");
-                Debug.Log($"Ã°Å¸â€œÅ  Analysis preview: {analysisText.Substring(0, Mathf.Min(200, analysisText.Length))}...");
+                Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Å¾ Analysis saved to: {analysisPath}");
+                Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…  Analysis preview: {analysisText.Substring(0, Mathf.Min(200, analysisText.Length))}...");
                 
                 // TODO: Parse the analysis and feed back into VisualAssessmentChat
                 // You could trigger assessment questions based on the analysis results
@@ -655,12 +655,12 @@ Provide your analysis in a structured format with specific evidence from the dat
         }
         catch (Exception e)
         {
-            Debug.LogError($"Ã¢ÂÅ’ Error parsing Gemini response: {e.Message}");
+            Debug.LogError($"ÃƒÂ¢Ã‚ÂÃ…â€™ Error parsing Gemini response: {e.Message}");
             
             // Fallback: save raw response
             string rawPath = Path.Combine(currentSessionPath, "gemini_raw_response.json");
             File.WriteAllText(rawPath, response);
-            Debug.Log($"Ã°Å¸â€™Â¾ Raw response saved to: {rawPath}");
+            Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¾ Raw response saved to: {rawPath}");
         }
     }
     
@@ -676,7 +676,7 @@ Provide your analysis in a structured format with specific evidence from the dat
     [ContextMenu("Test Analysis Without API")]
     public void TestAnalysisLocal()
     {
-        Debug.Log("Ã°Å¸Â§Âª Testing local navigation analysis (no API call)...");
+        Debug.Log("ÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Âª Testing local navigation analysis (no API call)...");
         
         if (useSessionManager && SessionManager.Instance != null)
         {
@@ -691,14 +691,14 @@ Provide your analysis in a structured format with specific evidence from the dat
     [ContextMenu("Debug: Show Available Sessions")]
     public void DebugShowAvailableSessions()
     {
-        Debug.Log("Ã°Å¸â€Â AVAILABLE SESSIONS DEBUG:");
+        Debug.Log("ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â AVAILABLE SESSIONS DEBUG:");
         
         if (useSessionManager && SessionManager.Instance != null)
         {
             UserSession session = SessionManager.Instance.GetCurrentSession();
-            Debug.Log($"Ã°Å¸â€œÅ  Current session: {session.userID}_{session.sessionDateTime}");
-            Debug.Log($"Ã°Å¸Å½Â¯ Current trial: {session.currentTrial}");
-            Debug.Log($"Ã¢Å“â€¦ Completed trials: {string.Join(", ", session.completedTrials)}");
+            Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…  Current session: {session.userID}_{session.sessionDateTime}");
+            Debug.Log($"ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ Current trial: {session.currentTrial}");
+            Debug.Log($"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Completed trials: {string.Join(", ", session.completedTrials)}");
             
             foreach (string trial in session.completedTrials)
             {
@@ -707,52 +707,52 @@ Provide your analysis in a structured format with specific evidence from the dat
                     string trialPath = SessionManager.Instance.GetTrialDataPath(trial);
                     string jsonPath = Path.Combine(trialPath, "navigation_data.json");
                     bool exists = File.Exists(jsonPath);
-                    Debug.Log($"  Ã°Å¸â€Â {trial}: {(exists ? "Ã¢Å“â€¦ HAS DATA" : "Ã¢ÂÅ’ NO DATA")} at {trialPath}");
+                    Debug.Log($"  ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â {trial}: {(exists ? "ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ HAS DATA" : "ÃƒÂ¢Ã‚ÂÃ…â€™ NO DATA")} at {trialPath}");
                 }
             }
         }
         else
         {
-            Debug.Log("Ã°Å¸â€Â§ Using legacy session detection");
+            Debug.Log("ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â§ Using legacy session detection");
             
             string baseNavigationPath = Path.Combine(Application.persistentDataPath, "NavigationData");
             string usersPath = Path.Combine(baseNavigationPath, "Users");
             
-            Debug.Log($"Ã°Å¸â€Â Base path: {baseNavigationPath}");
-            Debug.Log($"Ã°Å¸â€Â Users path: {usersPath}");
+            Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Base path: {baseNavigationPath}");
+            Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Users path: {usersPath}");
             
             if (Directory.Exists(usersPath))
             {
                 string[] folders = Directory.GetDirectories(usersPath);
-                Debug.Log($"Ã°Å¸â€œÂ Found {folders.Length} session folders:");
+                Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Found {folders.Length} session folders:");
                 foreach (string folder in folders)
                 {
                     string folderName = Path.GetFileName(folder);
-                    Debug.Log($"  Ã°Å¸â€œâ€š {folderName}");
+                    Debug.Log($"  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Å¡ {folderName}");
                     
                     // Check each trial folder for navigation data
                     string foundTrial = FindNavigationTrialInSession(folder);
                     if (!string.IsNullOrEmpty(foundTrial))
                     {
-                        Debug.Log($"    Ã¢Å“â€¦ Has navigation data in: {Path.GetFileName(foundTrial)}");
+                        Debug.Log($"    ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Has navigation data in: {Path.GetFileName(foundTrial)}");
                     }
                     else
                     {
-                        Debug.Log($"    Ã¢ÂÅ’ No navigation data found");
+                        Debug.Log($"    ÃƒÂ¢Ã‚ÂÃ…â€™ No navigation data found");
                     }
                 }
             }
             else
             {
-                Debug.LogError($"Ã¢ÂÅ’ Users directory not found at: {usersPath}");
+                Debug.LogError($"ÃƒÂ¢Ã‚ÂÃ…â€™ Users directory not found at: {usersPath}");
                 
                 if (Directory.Exists(baseNavigationPath))
                 {
-                    Debug.Log($"Ã°Å¸â€œÂ Base navigation path exists. Contents:");
+                    Debug.Log($"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Base navigation path exists. Contents:");
                     string[] items = Directory.GetFileSystemEntries(baseNavigationPath);
                     foreach (string item in items)
                     {
-                        Debug.Log($"  Ã¢â‚¬Â¢ {Path.GetFileName(item)}");
+                        Debug.Log($"  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {Path.GetFileName(item)}");
                     }
                 }
             }

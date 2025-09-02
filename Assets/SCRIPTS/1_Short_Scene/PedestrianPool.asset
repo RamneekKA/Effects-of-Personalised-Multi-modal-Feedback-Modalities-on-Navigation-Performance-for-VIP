@@ -16,6 +16,9 @@ MonoBehaviour:
   - _pedestrianPrefab: {fileID: 1909001698619046016, guid: 58b47efdda7a1456a9436a2ce7aed227, type: 3}
     _percent: 40
     _dontInstantiate: 0
-  - _pedestrianPrefab: {fileID: 1909001698619046016, guid: 052b79b29d6d8433f88199dd2a3563a7, type: 3}
-    _percent: 60
+  - _pedestrianPrefab: {fileID: 1909001698619046016, guid: ca2cb6117a650c240b443a0973a693dc, type: 3}
+    _percent: 20
+    _dontInstantiate: 0
+  - _pedestrianPrefab: {fileID: 1909001698619046016, guid: a21987a6d227b8e43987516d1ca7168a, type: 3}
+    _percent: 50
     _dontInstantiate: 0

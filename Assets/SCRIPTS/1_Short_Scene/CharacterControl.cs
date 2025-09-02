@@ -8,9 +8,8 @@ using UnityEngine.SceneManagement;
 namespace FCG
 {
     /// <summary>
-    /// Updated Character Controller with Pre-Analysis Coordination and Ambient Audio
-    /// Navigation and tracking only start AFTER Gemini pre-analysis is complete
-    /// Includes ambient audio support for navigation trials
+    /// Updated Character Controller with Unified Audio System Integration
+    /// Now uses single UnifiedAudioController instead of separate TieredAudioController
     /// </summary>
     public class CharacterControl : MonoBehaviour
     {
@@ -43,6 +42,13 @@ namespace FCG
         
         [Header("Enhancement System")]
         public AppliedEnhancements currentEnhancements;
+        
+        [Header("Unified Audio Integration")]
+        [Tooltip("Reference to the unified audio controller")]
+        public UnifiedAudioController unifiedAudioController;
+        
+        [Tooltip("Enable audio enhancements based on assessment")]
+        public bool enableAudioEnhancements = true;
         
         [Header("Ambient Audio Settings")]
         [Tooltip("Background audio clip to play during navigation")]
@@ -90,7 +96,7 @@ namespace FCG
         private bool navigationEnabled = false;
         private UserSession currentSession;
         
-        // Audio management
+        // Ambient audio management
         private AudioSource ambientAudioSource;
         private bool isAudioPlaying = false;
         private Coroutine audioFadeCoroutine;
@@ -129,6 +135,10 @@ namespace FCG
             if (routeGuideSystem == null)
                 routeGuideSystem = FindObjectOfType<RouteGuideSystem>();
 
+            // Find UnifiedAudioController if not assigned
+            if (unifiedAudioController == null)
+                unifiedAudioController = FindObjectOfType<UnifiedAudioController>();
+
             // Find the pre-analyzer
             geminiPreAnalyzer = FindObjectOfType<GeminiScenePreAnalyzer>();
             
@@ -149,7 +159,7 @@ namespace FCG
                 InitializeStandaloneMode();
             }
 
-            Debug.Log("Character Controller with ambient audio initialized");
+            Debug.Log("Character Controller with unified audio system initialized");
         }
 
         void SetupAmbientAudio()
@@ -170,8 +180,6 @@ namespace FCG
             ambientAudioSource.volume = 0f; // Start at 0, will fade in when needed
             ambientAudioSource.spatialBlend = 0f; // 2D audio (non-positional)
             ambientAudioSource.playOnAwake = false;
-            
-            // Set audio source priority (lower number = higher priority)
             ambientAudioSource.priority = 128;
             
             Debug.Log($"Ambient audio setup complete with clip: {ambientNavigationClip.name}");
@@ -226,7 +234,13 @@ namespace FCG
                 StartAmbientAudio();
             }
             
-            Debug.Log("Running in standalone mode");
+            // Enable audio enhancements in standalone mode
+            if (enableAudioEnhancements && unifiedAudioController != null)
+            {
+                unifiedAudioController.EnableAudioSystem();
+            }
+            
+            Debug.Log("Running in standalone mode with unified audio system");
         }
 
         bool ShouldWaitForPreAnalysis()
@@ -278,6 +292,12 @@ namespace FCG
                     StartAmbientAudio();
                 }
                 
+                // Initialize unified audio system for navigation trials
+                if (enableAudioEnhancements)
+                {
+                    InitializeUnifiedAudio();
+                }
+                
                 Debug.Log($"Navigation enabled for trial: {currentTrialType}");
                 Debug.Log("You can now navigate the route!");
             }
@@ -291,8 +311,54 @@ namespace FCG
                     StopAmbientAudio();
                 }
                 
+                // Disable unified audio for non-navigation trials
+                if (unifiedAudioController != null)
+                {
+                    unifiedAudioController.DisableAudioSystem();
+                }
+                
                 Debug.Log($"Navigation disabled for assessment trial: {currentTrialType}");
             }
+        }
+
+        void InitializeUnifiedAudio()
+        {
+            if (unifiedAudioController == null)
+            {
+                Debug.LogWarning("CharacterControl: No UnifiedAudioController found - audio enhancements disabled");
+                return;
+            }
+            
+            // Check if this is an enhanced trial that should use audio
+            bool shouldUseAudio = IsAudioEnhancedTrial(currentTrialType);
+            
+            if (shouldUseAudio)
+            {
+                // Enable the unified audio system
+                unifiedAudioController.EnableAudioSystem();
+                Debug.Log($"CharacterControl: Enabled unified audio enhancements for trial: {currentTrialType}");
+                
+                // Log the audio mode that was configured
+                var audioMode = unifiedAudioController.GetCurrentAudioMode();
+                var visionScore = unifiedAudioController.GetCentralVisionScore();
+                Debug.Log($"Audio Enhancement Mode: {audioMode} (Vision Score: {visionScore}/10)");
+                
+                if (audioMode == UnifiedAudioController.AudioMode.LimitedSpearcons)
+                {
+                    var clarityDistance = unifiedAudioController.GetObjectClarityDistance();
+                    Debug.Log($"Limited spearcons: announce objects beyond {clarityDistance}m");
+                }
+            }
+            else
+            {
+                Debug.Log($"CharacterControl: No audio enhancements for trial: {currentTrialType}");
+            }
+        }
+        
+        bool IsAudioEnhancedTrial(string trialType)
+        {
+            // Audio enhancements should be used for algorithmic trials only
+            return trialType == "short_algorithmic" || trialType == "long_algorithmic";
         }
 
         void ShowPreAnalysisWaitingMessage()
@@ -310,6 +376,14 @@ namespace FCG
             
             // Apply enhancements if this is an enhanced trial
             ApplyTrialEnhancements(trialType);
+
+            // Configure default navigation line settings for baseline trial
+            if (trialType == "baseline" && routeGuideSystem != null)
+            {
+                routeGuideSystem.SetLineWidth(0.2f);
+                routeGuideSystem.SetRouteOpacity(0.4f);
+                Debug.Log("Baseline trial: Applied default navigation line settings (width: 0.2, opacity: 0.4)");
+            }
             
             Debug.Log($"Trial configuration complete for: {trialType}");
         }
@@ -393,6 +467,12 @@ namespace FCG
         {
             Debug.Log($"Trial changed to: {newTrial}");
             ConfigureForTrial(newTrial);
+            
+            // Reconfigure unified audio for new trial
+            if (enableAudioEnhancements && navigationEnabled)
+            {
+                InitializeUnifiedAudio();
+            }
         }
 
         void InitializeTracking()
@@ -682,6 +762,12 @@ namespace FCG
             if (isAudioPlaying)
             {
                 StopAmbientAudio();
+            }
+            
+            // Stop unified audio when trial completes
+            if (unifiedAudioController != null)
+            {
+                unifiedAudioController.DisableAudioSystem();
             }
             
             SaveNavigationData();
@@ -1091,6 +1177,12 @@ namespace FCG
             {
                 ambientAudioSource.Stop();
             }
+            
+            // Stop unified audio system
+            if (unifiedAudioController != null)
+            {
+                unifiedAudioController.DisableAudioSystem();
+            }
 
             // Unsubscribe from events
             GeminiScenePreAnalyzer.OnPreAnalysisCompleted -= OnPreAnalysisCompleted;
@@ -1124,6 +1216,31 @@ namespace FCG
         public void TestStopAmbientAudio()
         {
             StopAmbientAudio();
+        }
+        
+        [ContextMenu("Test: Initialize Unified Audio")]
+        public void TestInitializeUnifiedAudio()
+        {
+            InitializeUnifiedAudio();
+        }
+
+        [ContextMenu("Debug: Unified Audio Status")]
+        public void DebugUnifiedAudioStatus()
+        {
+            Debug.Log("UNIFIED AUDIO STATUS:");
+            Debug.Log($"Unified Audio Controller: {(unifiedAudioController != null ? "FOUND" : "MISSING")}");
+            Debug.Log($"Audio Enhancements Enabled: {enableAudioEnhancements}");
+            Debug.Log($"Navigation Enabled: {navigationEnabled}");
+            Debug.Log($"Current Trial: {currentTrialType}");
+            Debug.Log($"Is Audio Enhanced Trial: {IsAudioEnhancedTrial(currentTrialType)}");
+            
+            if (unifiedAudioController != null)
+            {
+                Debug.Log($"Audio System Active: {unifiedAudioController.IsSystemActive()}");
+                Debug.Log($"Audio Mode: {unifiedAudioController.GetCurrentAudioMode()}");
+                Debug.Log($"Vision Score: {unifiedAudioController.GetCentralVisionScore()}/10");
+                Debug.Log($"Clarity Distance: {unifiedAudioController.GetObjectClarityDistance()}m");
+            }
         }
 
         [ContextMenu("Debug: Audio Status")]

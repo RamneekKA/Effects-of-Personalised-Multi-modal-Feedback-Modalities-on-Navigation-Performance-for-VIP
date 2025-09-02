@@ -6,6 +6,8 @@ namespace Gley.PedestrianSystem
 	{
 		path_1,
 		path_2,
+		path_3,
+		path_4,
 	}
 }
 #endif

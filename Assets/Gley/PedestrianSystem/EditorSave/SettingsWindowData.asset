@@ -37,7 +37,10 @@ MonoBehaviour:
   AgentRoutes:
     RoutesColor:
     - {r: 1, g: 1, b: 1, a: 1}
-    Active: 01
+    - {r: 1, g: 1, b: 1, a: 1}
+    - {r: 1, g: 1, b: 1, a: 1}
+    - {r: 1, g: 1, b: 1, a: 1}
+    Active: 01010101
   PathFindingRoutes:
     RoutesColor:
     - {r: 1, g: 1, b: 1, a: 1}
@@ -57,4 +60,4 @@ MonoBehaviour:
   WaypointDistance: 4
   LaneWidth: 4
   MoveTool: 1
-  GlobalPedestrianList: 01000000
+  GlobalPedestrianList: 03000000

@@ -56,7 +56,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     void InitializeAssessment()
     {
-        Debug.Log("🤖 Initializing Real-time LLM Conversational Assessment...");
+        Debug.Log("ðŸ¤– Initializing Real-time LLM Conversational Assessment...");
         
         // Initialize results structure
         assessmentResults = new LLMAssessmentResults();
@@ -84,12 +84,12 @@ public class GeminiConversationalAssessment : MonoBehaviour
             
             if (session == null)
             {
-                Debug.LogError("❌ No current session found in SessionManager!");
+                Debug.LogError("âŒ No current session found in SessionManager!");
                 return;
             }
             
-            Debug.Log($"🔍 Looking for navigation data in session: {session.userID}");
-            Debug.Log($"📊 Completed trials: [{string.Join(", ", session.completedTrials)}]");
+            Debug.Log($"ðŸ” Looking for navigation data in session: {session.userID}");
+            Debug.Log($"ðŸ“Š Completed trials: [{string.Join(", ", session.completedTrials)}]");
             
             // OPTION 1: Try to find from completed trials first
             string latestNavigationTrial = FindLatestNavigationTrial(session.completedTrials);
@@ -97,8 +97,8 @@ public class GeminiConversationalAssessment : MonoBehaviour
             // OPTION 2: If no completed trials found, search for actual data files
             if (string.IsNullOrEmpty(latestNavigationTrial))
             {
-                Debug.LogWarning("⚠️ No completed navigation trials found in session data.");
-                Debug.Log("🔍 Searching for actual navigation data files...");
+                Debug.LogWarning("âš ï¸ No completed navigation trials found in session data.");
+                Debug.Log("ðŸ” Searching for actual navigation data files...");
                 latestNavigationTrial = FindNavigationDataFiles();
             }
             
@@ -106,18 +106,18 @@ public class GeminiConversationalAssessment : MonoBehaviour
             {
                 string trialPath = SessionManager.Instance.GetTrialDataPath(latestNavigationTrial);
                 LoadNavigationSessionFromPath(trialPath);
-                Debug.Log($"📊 Loaded navigation data from trial: {latestNavigationTrial}");
+                Debug.Log($"ðŸ“Š Loaded navigation data from trial: {latestNavigationTrial}");
             }
             else
             {
-                Debug.LogError("❌ No navigation data found anywhere!");
-                Debug.Log("💡 Make sure you have completed at least one navigation trial first.");
+                Debug.LogError("âŒ No navigation data found anywhere!");
+                Debug.Log("ðŸ’¡ Make sure you have completed at least one navigation trial first.");
                 // Continue anyway - we can still do a conversation without navigation data
             }
         }
         else
         {
-            Debug.LogWarning("⚠️ SessionManager not available - using fallback data loading");
+            Debug.LogWarning("âš ï¸ SessionManager not available - using fallback data loading");
         }
     }
     
@@ -132,25 +132,25 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         if (string.IsNullOrEmpty(sessionPath) || !Directory.Exists(sessionPath))
         {
-            Debug.LogError($"❌ Session path not found: {sessionPath}");
+            Debug.LogError($"âŒ Session path not found: {sessionPath}");
             return null;
         }
         
         // List of navigation trials to check (in priority order)
         string[] navigationTrials = { "baseline", "short_llm", "short_algorithmic", "long_llm", "long_algorithmic" };
         
-        Debug.Log($"🔍 Searching in session path: {sessionPath}");
+        Debug.Log($"ðŸ” Searching in session path: {sessionPath}");
         
         foreach (string trial in navigationTrials)
         {
             string trialPath = SessionManager.Instance.GetTrialDataPath(trial);
             string navigationDataPath = Path.Combine(trialPath, "navigation_data.json");
             
-            Debug.Log($"🔍 Checking: {navigationDataPath}");
+            Debug.Log($"ðŸ” Checking: {navigationDataPath}");
             
             if (File.Exists(navigationDataPath))
             {
-                Debug.Log($"✅ Found navigation data for trial: {trial}");
+                Debug.Log($"âœ… Found navigation data for trial: {trial}");
                 
                 // Check if the file has actual content
                 try
@@ -158,27 +158,27 @@ public class GeminiConversationalAssessment : MonoBehaviour
                     string jsonContent = File.ReadAllText(navigationDataPath);
                     if (!string.IsNullOrEmpty(jsonContent) && jsonContent.Length > 100) // Basic validation
                     {
-                        Debug.Log($"✅ Navigation data file is valid for trial: {trial}");
+                        Debug.Log($"âœ… Navigation data file is valid for trial: {trial}");
                         return trial;
                     }
                     else
                     {
-                        Debug.LogWarning($"⚠️ Navigation data file exists but appears empty: {trial}");
+                        Debug.LogWarning($"âš ï¸ Navigation data file exists but appears empty: {trial}");
                     }
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"⚠️ Could not read navigation data for {trial}: {e.Message}");
+                    Debug.LogWarning($"âš ï¸ Could not read navigation data for {trial}: {e.Message}");
                 }
             }
             else
             {
-                Debug.Log($"❌ No navigation data found for trial: {trial}");
+                Debug.Log($"âŒ No navigation data found for trial: {trial}");
             }
         }
         
         // If we get here, no navigation data was found
-        Debug.LogError("❌ No navigation_data.json files found in any trial folders!");
+        Debug.LogError("âŒ No navigation_data.json files found in any trial folders!");
         
         // List what's actually in the session folder for debugging
         DebugListSessionContents();
@@ -197,11 +197,11 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         if (!Directory.Exists(sessionPath))
         {
-            Debug.LogError($"❌ Session directory doesn't exist: {sessionPath}");
+            Debug.LogError($"âŒ Session directory doesn't exist: {sessionPath}");
             return;
         }
         
-        Debug.Log($"📁 SESSION FOLDER CONTENTS: {sessionPath}");
+        Debug.Log($"ðŸ“ SESSION FOLDER CONTENTS: {sessionPath}");
         
         try
         {
@@ -210,7 +210,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             foreach (string dir in subDirectories)
             {
                 string dirName = Path.GetFileName(dir);
-                Debug.Log($"  📁 {dirName}/");
+                Debug.Log($"  ðŸ“ {dirName}/");
                 
                 // Check if this looks like a trial folder
                 if (dirName.Contains("Navigation") || dirName.Contains("Assessment"))
@@ -221,7 +221,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
                     {
                         string fileName = Path.GetFileName(file);
                         long fileSize = new FileInfo(file).Length;
-                        Debug.Log($"    📄 {fileName} ({fileSize} bytes)");
+                        Debug.Log($"    ðŸ“„ {fileName} ({fileSize} bytes)");
                     }
                     
                     // Check subdirectories
@@ -229,14 +229,14 @@ public class GeminiConversationalAssessment : MonoBehaviour
                     foreach (string subDir in subDirs)
                     {
                         string subDirName = Path.GetFileName(subDir);
-                        Debug.Log($"    📁 {subDirName}/");
+                        Debug.Log($"    ðŸ“ {subDirName}/");
                         
                         // If it's a specific trial subfolder, check for navigation_data.json
                         string navDataPath = Path.Combine(subDir, "navigation_data.json");
                         if (File.Exists(navDataPath))
                         {
                             long navDataSize = new FileInfo(navDataPath).Length;
-                            Debug.Log($"      ✅ navigation_data.json ({navDataSize} bytes)");
+                            Debug.Log($"      âœ… navigation_data.json ({navDataSize} bytes)");
                         }
                     }
                 }
@@ -244,7 +244,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError($"❌ Error listing session contents: {e.Message}");
+            Debug.LogError($"âŒ Error listing session contents: {e.Message}");
         }
     }
     
@@ -271,11 +271,11 @@ public class GeminiConversationalAssessment : MonoBehaviour
         {
             string jsonData = File.ReadAllText(jsonPath);
             currentSession = JsonUtility.FromJson<NavigationSession>(jsonData);
-            Debug.Log($"📈 Navigation session loaded: {currentSession.totalCollisions} collisions, {currentSession.duration:F1}s duration");
+            Debug.Log($"ðŸ“ˆ Navigation session loaded: {currentSession.totalCollisions} collisions, {currentSession.duration:F1}s duration");
         }
         else
         {
-            Debug.LogError($"❌ Navigation data not found at: {jsonPath}");
+            Debug.LogError($"âŒ Navigation data not found at: {jsonPath}");
         }
     }
     
@@ -291,7 +291,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             {
                 string sceneJson = File.ReadAllText(sceneAnalysisPath);
                 sceneAnalysisData = JsonUtility.FromJson<SceneAnalysisData>(sceneJson);
-                Debug.Log($"🛏️ Scene analysis loaded: {sceneAnalysisData.staticObjects?.Count ?? 0} objects");
+                Debug.Log($"ðŸ›ï¸ Scene analysis loaded: {sceneAnalysisData.staticObjects?.Count ?? 0} objects");
             }
             
             // Load Gemini pre-analysis text
@@ -299,7 +299,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             if (File.Exists(preAnalysisPath))
             {
                 preAnalysisText = File.ReadAllText(preAnalysisPath);
-                Debug.Log($"🧠 Pre-analysis loaded: {preAnalysisText.Length} characters");
+                Debug.Log($"ðŸ§  Pre-analysis loaded: {preAnalysisText.Length} characters");
             }
         }
     }
@@ -373,7 +373,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         fullContextPrompt = contextBuilder.ToString();
         
-        Debug.Log($"🧠 Created master context prompt: {fullContextPrompt.Length} characters");
+        Debug.Log($"ðŸ§  Created master context prompt: {fullContextPrompt.Length} characters");
     }
     
     IEnumerator BeginRealTimeConversation()
@@ -397,7 +397,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             yield return new WaitForSeconds(1f);
             
-            conversationUI.ShowSystemMessage("✅ AI interviewer connected. Beginning personalized assessment...");
+            conversationUI.ShowSystemMessage("âœ… AI interviewer connected. Beginning personalized assessment...");
             yield return new WaitForSeconds(1f);
         }
         
@@ -411,14 +411,14 @@ public class GeminiConversationalAssessment : MonoBehaviour
     {
         if (questionCount >= maxQuestions)
         {
-            Debug.Log("📋 Reached maximum question limit, proceeding to final decisions");
+            Debug.Log("ðŸ“‹ Reached maximum question limit, proceeding to final decisions");
             yield return StartCoroutine(GenerateFinalDecisions());
             yield break;
         }
         
         questionCount++;
         
-        Debug.Log($"🤔 Generating question {questionCount}/{maxQuestions}...");
+        Debug.Log($"ðŸ¤” Generating question {questionCount}/{maxQuestions}...");
         
         if (conversationUI != null)
         {
@@ -499,7 +499,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"❌ Question request failed: {request.error}");
+                Debug.LogError($"âŒ Question request failed: {request.error}");
                 HandleQuestionRequestFailure();
             }
         }
@@ -516,12 +516,12 @@ public class GeminiConversationalAssessment : MonoBehaviour
             {
                 string responseText = geminiResponse.candidates[0].content.parts[0].text.Trim();
                 
-                Debug.Log($"🤖 AI Response: {responseText}");
+                Debug.Log($"ðŸ¤– AI Response: {responseText}");
                 
                 // Check if AI wants to stop asking questions
                 if (responseText.ToUpper().Contains("ENOUGH_INFO:"))
                 {
-                    Debug.Log("🎯 AI has enough information, proceeding to decisions");
+                    Debug.Log("ðŸŽ¯ AI has enough information, proceeding to decisions");
                     StartCoroutine(GenerateFinalDecisions());
                     return;
                 }
@@ -536,19 +536,19 @@ public class GeminiConversationalAssessment : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning("⚠️ Could not extract question from AI response, using fallback");
+                    Debug.LogWarning("âš ï¸ Could not extract question from AI response, using fallback");
                     ShowQuestionAndWaitForResponse("Can you tell me more about any challenges you experienced during navigation?");
                 }
             }
             else
             {
-                Debug.LogError("❌ Invalid response format from Gemini");
+                Debug.LogError("âŒ Invalid response format from Gemini");
                 HandleQuestionRequestFailure();
             }
         }
         catch (Exception e)
         {
-            Debug.LogError($"❌ Error processing question response: {e.Message}");
+            Debug.LogError($"âŒ Error processing question response: {e.Message}");
             HandleQuestionRequestFailure();
         }
     }
@@ -636,7 +636,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     void HandleUserResponse(string question, string response)
     {
-        Debug.Log($"👤 User responded: {response}");
+        Debug.Log($"ðŸ‘¤ User responded: {response}");
         
         // Record the response
         ChatMessage responseMessage = new ChatMessage
@@ -669,7 +669,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     void HandleQuestionRequestFailure()
     {
-        Debug.LogWarning("⚠️ Question generation failed, using fallback question");
+        Debug.LogWarning("âš ï¸ Question generation failed, using fallback question");
         
         // Use fallback questions based on question count
         string[] fallbackQuestions = {
@@ -691,7 +691,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     IEnumerator GenerateFinalDecisions()
     {
-        Debug.Log("🎯 Generating final enhancement decisions based on conversation...");
+        Debug.Log("ðŸŽ¯ Generating final enhancement decisions based on conversation...");
         
         conversationInProgress = false;
         
@@ -788,7 +788,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"❌ Final decision request failed: {request.error}");
+                Debug.LogError($"âŒ Final decision request failed: {request.error}");
                 CreateFallbackDecisions();
                 CompleteAssessment();
             }
@@ -813,14 +813,14 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("⚠️ Invalid decision response, using fallback");
+                Debug.LogWarning("âš ï¸ Invalid decision response, using fallback");
                 CreateFallbackDecisions();
                 CompleteAssessment();
             }
         }
         catch (Exception e)
         {
-            Debug.LogError($"❌ Error parsing final decisions: {e.Message}");
+            Debug.LogError($"âŒ Error parsing final decisions: {e.Message}");
             CreateFallbackDecisions();
             CompleteAssessment();
         }
@@ -892,9 +892,9 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         assessmentResults.llmDecisions = decisions;
         
-        Debug.Log("✅ Successfully parsed LLM enhancement decisions from real-time conversation");
-        Debug.Log($"🎯 High priority: {string.Join(", ", decisions.highPriorityObjects)}");
-        Debug.Log($"🔊 Audio: {decisions.useAudio}, Haptics: {decisions.useHaptics}");
+        Debug.Log("âœ… Successfully parsed LLM enhancement decisions from real-time conversation");
+        Debug.Log($"ðŸŽ¯ High priority: {string.Join(", ", decisions.highPriorityObjects)}");
+        Debug.Log($"ðŸ”Š Audio: {decisions.useAudio}, Haptics: {decisions.useHaptics}");
     }
     
     List<string> ParseObjectList(string objectList)
@@ -950,7 +950,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     void CreateFallbackDecisions()
     {
-        Debug.Log("🔧 Creating fallback enhancement decisions...");
+        Debug.Log("ðŸ”§ Creating fallback enhancement decisions...");
         
         AppliedEnhancements fallbackDecisions = new AppliedEnhancements();
         fallbackDecisions.sourceAssessment = "llm_fallback";
@@ -1007,9 +1007,9 @@ public class GeminiConversationalAssessment : MonoBehaviour
         // Notify other systems
         OnAssessmentCompleted?.Invoke(assessmentResults);
         
-        Debug.Log("🎉 Real-time LLM Conversational Assessment completed!");
-        Debug.Log($"📊 {assessmentResults.totalQuestions} questions asked over {assessmentResults.conversationDuration:F1} seconds");
-        Debug.Log($"💬 Conversation included {conversationHistory.Count} total messages");
+        Debug.Log("ðŸŽ‰ Real-time LLM Conversational Assessment completed!");
+        Debug.Log($"ðŸ“Š {assessmentResults.totalQuestions} questions asked over {assessmentResults.conversationDuration:F1} seconds");
+        Debug.Log($"ðŸ’¬ Conversation included {conversationHistory.Count} total messages");
     }
     
     void SaveAssessmentResults()
@@ -1024,7 +1024,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             string jsonData = JsonUtility.ToJson(assessmentResults, true);
             File.WriteAllText(jsonPath, jsonData);
             
-            Debug.Log($"💾 Real-time LLM assessment results saved to: {jsonPath}");
+            Debug.Log($"ðŸ’¾ Real-time LLM assessment results saved to: {jsonPath}");
             
             // Update SessionManager with results
             UserSession session = SessionManager.Instance.GetCurrentSession();
@@ -1078,7 +1078,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     [ContextMenu("Debug: Show Conversation State")]
     public void DebugShowConversationState()
     {
-        Debug.Log($"📋 CONVERSATION STATE:");
+        Debug.Log($"ðŸ“‹ CONVERSATION STATE:");
         Debug.Log($"Questions asked: {questionCount}/{maxQuestions}");
         Debug.Log($"Conversation in progress: {conversationInProgress}");
         Debug.Log($"Assessment complete: {assessmentComplete}");
@@ -1091,7 +1091,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     [ContextMenu("Debug: Show Master Context")]
     public void DebugShowMasterContext()
     {
-        Debug.Log($"🧠 MASTER CONTEXT ({fullContextPrompt.Length} chars):");
+        Debug.Log($"ðŸ§  MASTER CONTEXT ({fullContextPrompt.Length} chars):");
         Debug.Log(fullContextPrompt.Substring(0, Mathf.Min(500, fullContextPrompt.Length)) + "...");
     }
     
@@ -1101,11 +1101,50 @@ public class GeminiConversationalAssessment : MonoBehaviour
         string foundTrial = FindNavigationDataFiles();
         if (!string.IsNullOrEmpty(foundTrial))
         {
-            Debug.Log($"✅ Found navigation data: {foundTrial}");
+            Debug.Log($"âœ… Found navigation data: {foundTrial}");
         }
         else
         {
-            Debug.Log("❌ No navigation data found");
+            Debug.Log("âŒ No navigation data found");
         }
     }
+
+    // Add this method to your GeminiConversationalAssessment.cs file
+// Place it at the bottom of the class, right before the closing brace
+
+[ContextMenu("Debug: Check Navigation Data Paths")]
+public void DebugCheckNavigationPaths()
+{
+    Debug.Log("=== NAVIGATION DATA PATH DEBUG ===");
+    
+    if (SessionManager.Instance != null)
+    {
+        string sessionPath = SessionManager.Instance.GetSessionPath();
+        Debug.Log($"Current Session Path: {sessionPath}");
+        
+        // Check each trial folder
+        string[] trials = { "baseline", "short_llm", "short_algorithmic", "long_llm", "long_algorithmic" };
+        foreach (string trial in trials)
+        {
+            string trialPath = SessionManager.Instance.GetTrialDataPath(trial);
+            string navFile = Path.Combine(trialPath, "navigation_data.json");
+            
+            Debug.Log($"{trial}: {(File.Exists(navFile) ? "EXISTS" : "MISSING")} at {navFile}");
+            
+            if (File.Exists(navFile))
+            {
+                FileInfo info = new FileInfo(navFile);
+                Debug.Log($"  Size: {info.Length} bytes, Modified: {info.LastWriteTime}");
+            }
+        }
+        
+        // Check what completed trials are recorded
+        var session = SessionManager.Instance.GetCurrentSession();
+        Debug.Log($"Recorded completed trials: [{string.Join(", ", session.completedTrials)}]");
+    }
+    else
+    {
+        Debug.LogError("SessionManager.Instance is null!");
+    }
+}
 }

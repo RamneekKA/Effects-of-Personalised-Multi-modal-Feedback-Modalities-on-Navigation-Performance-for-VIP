@@ -421,17 +421,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Version: 3
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_RenderingLayers: 1
   m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_ShadowRenderingLayers: 1
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &1497635163
 GameObject:
   m_ObjectHideFlags: 0
@@ -509,7 +515,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9da05ea221f0462c9c69809e86514e2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  userID: User0011
+  customDataFolderName: VisionAssessmentData
+  useDocumentsFolder: 1
+  userID: User001
   currentTrial: llm
   loadExistingSession: 1
   requirePreAnalysis: 0
@@ -572,7 +580,6 @@ MonoBehaviour:
       preferredModalityType: 
       assessmentDuration: 0
       assessmentDateTime: 
-      notes: 
       completed: 0
       algorithmicDecisions:
         sourceAssessment: 
@@ -592,7 +599,6 @@ MonoBehaviour:
         frontMultiplier: 1
         recommendSlowerSpeed: 0
         recommendedSpeedMultiplier: 1
-      maxVisibleDistance: 0
       canSee2Meters: 0
       canSee4Meters: 0
       canSee8Meters: 0
@@ -895,6 +901,7 @@ MonoBehaviour:
     notes: 
     sessionCompleted: 0
   sessionFolderPath: 
+  baseDataPath: 
   preAnalysisCompleted: 0
 --- !u!4 &1822045909
 Transform:

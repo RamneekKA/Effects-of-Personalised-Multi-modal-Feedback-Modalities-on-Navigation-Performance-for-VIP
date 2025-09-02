@@ -127,7 +127,7 @@ public class SceneAnalysisCapture : MonoBehaviour
     {
         processedObjectKeys.Clear();
         processedSignatures.Clear();
-        Debug.Log("🔍 Duplicate detection system initialized");
+        Debug.Log("ðŸ” Duplicate detection system initialized");
     }
     
     bool IsObjectAlreadyProcessed(GameObject obj, string className)
@@ -140,7 +140,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         {
             if (newSignature.IsDuplicateOf(existing, duplicatePositionThreshold))
             {
-                Debug.Log($"🚫 DUPLICATE DETECTED: {newSignature} (matches {existing})");
+                Debug.Log($"ðŸš« DUPLICATE DETECTED: {newSignature} (matches {existing})");
                 return true;
             }
         }
@@ -161,7 +161,7 @@ public class SceneAnalysisCapture : MonoBehaviour
             ObjectSignature existingSignature = new ObjectSignature(existing.objectName, existing.position, existing.className);
             if (signature.IsDuplicateOf(existingSignature, duplicatePositionThreshold))
             {
-                Debug.Log($"🚫 DUPLICATE BLOCKED: {signature} from {source} (already in list)");
+                Debug.Log($"ðŸš« DUPLICATE BLOCKED: {signature} from {source} (already in list)");
                 return false;
             }
         }
@@ -171,7 +171,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         {
             if (signature.IsDuplicateOf(existing, duplicatePositionThreshold))
             {
-                Debug.Log($"🚫 DUPLICATE BLOCKED: {signature} from {source} (globally processed)");
+                Debug.Log($"ðŸš« DUPLICATE BLOCKED: {signature} from {source} (globally processed)");
                 return false;
             }
         }
@@ -179,7 +179,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         // Not a duplicate - add it
         targetList.Add(objectData);
         processedSignatures.Add(signature);
-        Debug.Log($"✅ ADDED UNIQUE: {signature} from {source}");
+        Debug.Log($"âœ… ADDED UNIQUE: {signature} from {source}");
         return true;
     }
     
@@ -202,7 +202,7 @@ public class SceneAnalysisCapture : MonoBehaviour
     [ContextMenu("Capture Scene Analysis")]
     public void CaptureSceneAnalysis()
     {
-        Debug.Log("🔍 Starting route-focused scene analysis with duplicate prevention...");
+        Debug.Log("ðŸ” Starting route-focused scene analysis with duplicate prevention...");
         
         // Initialize duplicate detection
         InitializeDuplicateDetection();
@@ -226,7 +226,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("⚠️ No route system found - falling back to full scene analysis");
+            Debug.LogWarning("âš ï¸ No route system found - falling back to full scene analysis");
             CaptureStaticEnvironmentWithDuplicateCheck(sceneData);
         }
         
@@ -246,7 +246,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         // Report duplicate detection results
         ReportDuplicateDetectionResults();
         
-        Debug.Log($"✅ Route-focused scene analysis complete. Data saved to: {sceneAnalysisPath}");
+        Debug.Log($"âœ… Route-focused scene analysis complete. Data saved to: {sceneAnalysisPath}");
     }
     
     void CaptureRouteBasedAnalysisWithDuplicateCheck(SceneAnalysisData sceneData)
@@ -264,7 +264,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         int totalFoundBeforeFilter = 0;
         int duplicatesBlocked = 0;
         
-        Debug.Log("🔍 Method 1: Analyzing DetectableObjects near route...");
+        Debug.Log("ðŸ” Method 1: Analyzing DetectableObjects near route...");
         
         // Method 1: DetectableObjects near route
         DetectableObject[] detectableObjects = FindObjectsOfType<DetectableObject>();
@@ -292,7 +292,7 @@ public class SceneAnalysisCapture : MonoBehaviour
             }
         }
         
-        Debug.Log("🔍 Method 2: Analyzing Building hierarchy near route...");
+        Debug.Log("ðŸ” Method 2: Analyzing Building hierarchy near route...");
         
         // Method 2: Building hierarchy near route
         foreach (string parentName in buildingParentNames)
@@ -304,7 +304,7 @@ public class SceneAnalysisCapture : MonoBehaviour
             }
         }
         
-        Debug.Log("🔍 Method 3: Analyzing Obstacle hierarchy near route...");
+        Debug.Log("ðŸ” Method 3: Analyzing Obstacle hierarchy near route...");
         
         // Method 3: Obstacle hierarchy near route
         foreach (string parentName in obstacleParentNames)
@@ -321,10 +321,10 @@ public class SceneAnalysisCapture : MonoBehaviour
         
         int filteredOut = totalFoundBeforeFilter - routeRelevantObjects.Count - duplicatesBlocked;
         
-        Debug.Log($"🛣️ Route-focused analysis complete:");
-        Debug.Log($"   📊 {routeRelevantObjects.Count} unique objects within {routeAnalysisWidth}m of route");
-        Debug.Log($"   🚫 {duplicatesBlocked} duplicates blocked");
-        Debug.Log($"   🔧 {filteredOut} non-real-world objects filtered");
+        Debug.Log($"ðŸ›£ï¸ Route-focused analysis complete:");
+        Debug.Log($"   ðŸ“Š {routeRelevantObjects.Count} unique objects within {routeAnalysisWidth}m of route");
+        Debug.Log($"   ðŸš« {duplicatesBlocked} duplicates blocked");
+        Debug.Log($"   ðŸ”§ {filteredOut} non-real-world objects filtered");
     }
     
     StaticObjectData CreateStaticObjectData(GameObject obj, string className, List<Vector3> routePoints)
@@ -465,22 +465,22 @@ public class SceneAnalysisCapture : MonoBehaviour
         }
         
         sceneData.staticObjects = staticObjects;
-        Debug.Log($"📊 Static environment captured: {staticObjects.Count} unique objects within {analysisRadius}m");
-        Debug.Log($"🚫 Blocked {duplicatesBlocked} duplicates");
+        Debug.Log($"ðŸ“Š Static environment captured: {staticObjects.Count} unique objects within {analysisRadius}m");
+        Debug.Log($"ðŸš« Blocked {duplicatesBlocked} duplicates");
     }
     
     void ReportDuplicateDetectionResults()
     {
-        Debug.Log($"🔍 DUPLICATE DETECTION SUMMARY:");
-        Debug.Log($"   📊 Total unique signatures processed: {processedSignatures.Count}");
-        Debug.Log($"   🎯 Position threshold: {duplicatePositionThreshold}m");
+        Debug.Log($"ðŸ” DUPLICATE DETECTION SUMMARY:");
+        Debug.Log($"   ðŸ“Š Total unique signatures processed: {processedSignatures.Count}");
+        Debug.Log($"   ðŸŽ¯ Position threshold: {duplicatePositionThreshold}m");
         
         // Group by class for detailed breakdown
         var classCounts = processedSignatures.GroupBy(s => s.className).OrderByDescending(g => g.Count());
-        Debug.Log($"   📋 Object breakdown:");
+        Debug.Log($"   ðŸ“‹ Object breakdown:");
         foreach (var group in classCounts)
         {
-            Debug.Log($"      • {group.Key}: {group.Count()} objects");
+            Debug.Log($"      â€¢ {group.Key}: {group.Count()} objects");
         }
     }
     
@@ -593,7 +593,7 @@ public class SceneAnalysisCapture : MonoBehaviour
             sceneAnalysisPath = Path.Combine(sessionPath, "01_SceneAnalysis");
             sessionID = SessionManager.Instance.GetCurrentSession().userID + "_SceneAnalysis";
             
-            Debug.Log($"📁 Using SessionManager path: {sceneAnalysisPath}");
+            Debug.Log($"ðŸ“ Using SessionManager path: {sceneAnalysisPath}");
         }
         else
         {
@@ -602,7 +602,7 @@ public class SceneAnalysisCapture : MonoBehaviour
             sceneAnalysisPath = Path.Combine(Application.persistentDataPath, "SceneAnalysis");
             Directory.CreateDirectory(sceneAnalysisPath);
             
-            Debug.Log($"📁 Using standalone path: {sceneAnalysisPath}");
+            Debug.Log($"ðŸ“ Using standalone path: {sceneAnalysisPath}");
         }
         
         // Ensure directory exists
@@ -616,7 +616,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         sceneData.playerSpawnPosition = playerTransform.position;
         sceneData.playerSpawnRotation = playerTransform.rotation.eulerAngles;
         
-        Debug.Log($"👤 Player reference position: {sceneData.playerSpawnPosition}");
+        Debug.Log($"ðŸ‘¤ Player reference position: {sceneData.playerSpawnPosition}");
     }
     
     void CaptureRouteData(SceneAnalysisData sceneData)
@@ -632,11 +632,11 @@ public class SceneAnalysisCapture : MonoBehaviour
             sceneData.routeTotalDistance = routeGuideSystem.GetRouteDistance();
             sceneData.routeWaypoints = routePoints;
             
-            Debug.Log($"🛣️ Route data captured: {sceneData.routeTotalDistance:F1}m with {routePoints.Count} waypoints");
+            Debug.Log($"ðŸ›£ï¸ Route data captured: {sceneData.routeTotalDistance:F1}m with {routePoints.Count} waypoints");
         }
         else
         {
-            Debug.LogWarning("⚠️ No valid route found for analysis");
+            Debug.LogWarning("âš ï¸ No valid route found for analysis");
         }
     }
     
@@ -644,7 +644,7 @@ public class SceneAnalysisCapture : MonoBehaviour
     {
         sceneData.dynamicObjects = new List<DynamicObjectData>();
         
-        Debug.Log("🚗 Starting dynamic object capture...");
+        Debug.Log("ðŸš— Starting dynamic object capture...");
         
         // Get reference to dynamic object manager
         DynamicObjectManager dynamicManager = FindObjectOfType<DynamicObjectManager>();
@@ -654,11 +654,11 @@ public class SceneAnalysisCapture : MonoBehaviour
         {
             // Use DynamicObjectManager's tracked objects
             dynamicObjects = dynamicManager.GetAllDynamicObjects();
-            Debug.Log($"📊 Found {dynamicObjects.Count} dynamic objects via DynamicObjectManager");
+            Debug.Log($"ðŸ“Š Found {dynamicObjects.Count} dynamic objects via DynamicObjectManager");
         }
         else
         {
-            Debug.LogWarning("⚠️ No DynamicObjectManager found - falling back to manual detection");
+            Debug.LogWarning("âš ï¸ No DynamicObjectManager found - falling back to manual detection");
             // Fallback: manual detection
             dynamicObjects = FindDynamicObjectsManually();
         }
@@ -691,13 +691,13 @@ public class SceneAnalysisCapture : MonoBehaviour
             }
         }
         
-        Debug.Log($"🚗 Dynamic objects captured: {sceneData.dynamicObjects.Count}");
+        Debug.Log($"ðŸš— Dynamic objects captured: {sceneData.dynamicObjects.Count}");
         
         // Log breakdown by type
         var typeGroups = sceneData.dynamicObjects.GroupBy(obj => obj.className);
         foreach (var group in typeGroups)
         {
-            Debug.Log($"  • {group.Key}: {group.Count()} objects");
+            Debug.Log($"  â€¢ {group.Key}: {group.Count()} objects");
         }
     }
     
@@ -732,7 +732,7 @@ public class SceneAnalysisCapture : MonoBehaviour
             }
         }
         
-        Debug.Log($"🔍 Manual detection found {dynamicObjects.Count} potential dynamic objects");
+        Debug.Log($"ðŸ” Manual detection found {dynamicObjects.Count} potential dynamic objects");
         return dynamicObjects;
     }
     
@@ -868,7 +868,7 @@ public class SceneAnalysisCapture : MonoBehaviour
             sceneData.statistics.objectTypeDistribution[group.Key] = group.Count();
         }
         
-        Debug.Log($"🔗 Spatial relationships captured: {sceneData.spatialClusters.Count} clusters identified");
+        Debug.Log($"ðŸ”— Spatial relationships captured: {sceneData.spatialClusters.Count} clusters identified");
     }
     
     List<SpatialCluster> FindClusters(List<StaticObjectData> objects, float clusterDistance)
@@ -947,7 +947,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         DestroyImmediate(screenshot);
         renderTexture.Release();
         
-        Debug.Log($"📸 Scene overview screenshot saved");
+        Debug.Log($"ðŸ“¸ Scene overview screenshot saved");
     }
     
     Vector3 CalculateSceneCenter()
@@ -981,7 +981,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         string summary = GenerateHumanReadableSummary(sceneData);
         File.WriteAllText(summaryPath, summary);
         
-        Debug.Log($"💾 Scene analysis saved: {sceneData.staticObjects?.Count ?? 0} static objects, {sceneData.dynamicObjects?.Count ?? 0} dynamic objects");
+        Debug.Log($"ðŸ’¾ Scene analysis saved: {sceneData.staticObjects?.Count ?? 0} static objects, {sceneData.dynamicObjects?.Count ?? 0} dynamic objects");
         
         // Update session data if using SessionManager
         if (useSessionManager && SessionManager.Instance != null)
@@ -996,7 +996,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         
         // You could add scene analysis summary to session data here
         // For now, just log that it's complete
-        Debug.Log($"📋 Scene analysis data linked to session: {session.userID}");
+        Debug.Log($"ðŸ“‹ Scene analysis data linked to session: {session.userID}");
         
         SessionManager.Instance.SaveSessionData();
     }
@@ -1084,20 +1084,20 @@ public class SceneAnalysisCapture : MonoBehaviour
     [ContextMenu("Debug: Count Objects by Type")]
     public void DebugCountObjectsByType()
     {
-        Debug.Log("🔍 OBJECT COUNTING DEBUG:");
+        Debug.Log("ðŸ” OBJECT COUNTING DEBUG:");
         
         // Count DetectableObjects
         DetectableObject[] allDetectable = FindObjectsOfType<DetectableObject>();
         var detectableByClass = allDetectable.GroupBy(obj => obj.className);
         
-        Debug.Log($"📊 DetectableObject components found: {allDetectable.Length}");
+        Debug.Log($"ðŸ“Š DetectableObject components found: {allDetectable.Length}");
         foreach (var group in detectableByClass.OrderByDescending(g => g.Count()))
         {
-            Debug.Log($"   • {group.Key}: {group.Count()} objects");
+            Debug.Log($"   â€¢ {group.Key}: {group.Count()} objects");
             
             if (group.Key == "Bicycle")
             {
-                Debug.Log($"     📍 Bicycle positions:");
+                Debug.Log($"     ðŸ“ Bicycle positions:");
                 foreach (var bike in group)
                 {
                     Debug.Log($"        - {bike.name} at {bike.transform.position} (Parent: {bike.transform.parent?.name ?? "None"})");
@@ -1108,7 +1108,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         // Count GameObjects by name pattern
         GameObject[] allObjects = FindObjectsOfType<GameObject>();
         var bicycleObjects = allObjects.Where(obj => obj.name.ToLower().Contains("bicycle")).ToList();
-        Debug.Log($"🚲 GameObjects with 'bicycle' in name: {bicycleObjects.Count}");
+        Debug.Log($"ðŸš² GameObjects with 'bicycle' in name: {bicycleObjects.Count}");
         foreach (var bike in bicycleObjects)
         {
             Debug.Log($"   - {bike.name} at {bike.transform.position}");
@@ -1118,7 +1118,7 @@ public class SceneAnalysisCapture : MonoBehaviour
     [ContextMenu("Debug: Test Duplicate Detection")]
     public void DebugTestDuplicateDetection()
     {
-        Debug.Log("🧪 Testing duplicate detection logic...");
+        Debug.Log("ðŸ§ª Testing duplicate detection logic...");
         
         InitializeDuplicateDetection();
         
@@ -1126,7 +1126,7 @@ public class SceneAnalysisCapture : MonoBehaviour
         DetectableObject[] allDetectable = FindObjectsOfType<DetectableObject>();
         var bicycles = allDetectable.Where(obj => obj.className == "Bicycle").ToList();
         
-        Debug.Log($"🚲 Found {bicycles.Count} bicycle DetectableObjects");
+        Debug.Log($"ðŸš² Found {bicycles.Count} bicycle DetectableObjects");
         
         List<StaticObjectData> testList = new List<StaticObjectData>();
         
@@ -1140,17 +1140,17 @@ public class SceneAnalysisCapture : MonoBehaviour
             };
             
             bool added = TryAddUniqueObject(objectData, testList, "Test");
-            Debug.Log($"   🚲 {bike.name} at {bike.transform.position}: {(added ? "ADDED" : "BLOCKED as duplicate")}");
+            Debug.Log($"   ðŸš² {bike.name} at {bike.transform.position}: {(added ? "ADDED" : "BLOCKED as duplicate")}");
         }
         
-        Debug.Log($"🎯 Final unique bicycle count: {testList.Count}");
+        Debug.Log($"ðŸŽ¯ Final unique bicycle count: {testList.Count}");
     }
     
     [ContextMenu("Debug: Set Duplicate Threshold")]
     public void DebugSetDuplicateThreshold()
     {
         duplicatePositionThreshold = 0.5f; // Increase for testing
-        Debug.Log($"🎯 Duplicate position threshold set to: {duplicatePositionThreshold}m");
+        Debug.Log($"ðŸŽ¯ Duplicate position threshold set to: {duplicatePositionThreshold}m");
     }
     
     [ContextMenu("Debug: Test Session Integration")]
@@ -1161,42 +1161,42 @@ public class SceneAnalysisCapture : MonoBehaviour
             string sessionPath = SessionManager.Instance.GetSessionPath();
             string trialPath = SessionManager.Instance.GetTrialDataPath("baseline");
             
-            Debug.Log($"✅ SessionManager found");
-            Debug.Log($"📁 Session path: {sessionPath}");
-            Debug.Log($"📁 Trial path: {trialPath}");
-            Debug.Log($"🎯 Current trial: {SessionManager.Instance.GetCurrentTrial()}");
+            Debug.Log($"âœ… SessionManager found");
+            Debug.Log($"ðŸ“ Session path: {sessionPath}");
+            Debug.Log($"ðŸ“ Trial path: {trialPath}");
+            Debug.Log($"ðŸŽ¯ Current trial: {SessionManager.Instance.GetCurrentTrial()}");
         }
         else
         {
-            Debug.LogError("❌ SessionManager not found!");
+            Debug.LogError("âŒ SessionManager not found!");
         }
     }
     
     [ContextMenu("Debug: Test Dynamic Object Detection")]
     public void DebugTestDynamicObjectDetection()
     {
-        Debug.Log("🔍 Testing dynamic object detection...");
+        Debug.Log("ðŸ” Testing dynamic object detection...");
         
         DynamicObjectManager dynamicManager = FindObjectOfType<DynamicObjectManager>();
         if (dynamicManager != null)
         {
             List<GameObject> managedObjects = dynamicManager.GetAllDynamicObjects();
-            Debug.Log($"📊 DynamicObjectManager tracking: {managedObjects.Count} objects");
+            Debug.Log($"ðŸ“Š DynamicObjectManager tracking: {managedObjects.Count} objects");
             
             foreach (GameObject obj in managedObjects.Take(10)) // Show first 10
             {
                 string className = obj.GetComponent<DetectableObject>()?.className ?? ClassifyObjectByName(obj.name);
-                Debug.Log($"  • {obj.name}: {className}");
+                Debug.Log($"  â€¢ {obj.name}: {className}");
             }
         }
         else
         {
-            Debug.LogWarning("⚠️ No DynamicObjectManager found");
+            Debug.LogWarning("âš ï¸ No DynamicObjectManager found");
         }
         
         // Test manual detection
         List<GameObject> manualObjects = FindDynamicObjectsManually();
-        Debug.Log($"🔧 Manual detection found: {manualObjects.Count} objects");
+        Debug.Log($"ðŸ”§ Manual detection found: {manualObjects.Count} objects");
     }
     
     #endregion

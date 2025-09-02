@@ -895,16 +895,37 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
     
     void SaveAssessmentData()
     {
-        // Find the user's session folder
-        string userSessionPath = FindUserSessionFolder();
+        // Use SessionManager's cross-platform path system
+        string userSessionPath = "";
         
-        if (string.IsNullOrEmpty(userSessionPath))
+        if (SessionManager.Instance != null)
         {
-            Debug.LogError($"Could not find session folder for user: {userID}");
-            Debug.LogError($"Make sure the user has completed navigation first to create the session folder");
-            return;
+            // Primary method: Use SessionManager's path system
+            userSessionPath = SessionManager.Instance.GetSessionPath();
+            
+            if (!string.IsNullOrEmpty(userSessionPath) && Directory.Exists(userSessionPath))
+            {
+                SaveToSessionManagerPath(userSessionPath);
+                return;
+            }
         }
         
+        // Fallback method: Find user session folder using cross-platform base path
+        userSessionPath = FindUserSessionFolderCrossPlatform();
+        
+        if (!string.IsNullOrEmpty(userSessionPath))
+        {
+            SaveToSessionManagerPath(userSessionPath);
+        }
+        else
+        {
+            Debug.LogError($"Could not find or create session folder for user: {userID}");
+            Debug.LogError("Make sure SessionManager is initialized or user has completed navigation first");
+        }
+    }
+    
+    void SaveToSessionManagerPath(string userSessionPath)
+    {
         // Create the AlgorithmicAssessment subfolder within the user's session
         string assessmentPath = Path.Combine(userSessionPath, "03_AlgorithmicAssessment");
         Directory.CreateDirectory(assessmentPath);
@@ -915,17 +936,28 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
         File.WriteAllText(jsonPath, jsonData);
         
         Debug.Log($"Assessment data saved to: {jsonPath}");
-        Debug.Log($"Saved in user session folder: {userSessionPath}");
+        Debug.Log($"Full path: {Path.GetFullPath(jsonPath)}");
     }
     
-    string FindUserSessionFolder()
+    string FindUserSessionFolderCrossPlatform()
     {
-        // Look for user session folders in the standard location
-        string baseNavigationPath = Path.Combine(Application.persistentDataPath, "NavigationData", "Users");
+        // Get base path from SessionManager or use cross-platform detection
+        string baseNavigationPath;
+        
+        if (SessionManager.Instance != null)
+        {
+            baseNavigationPath = Path.Combine(SessionManager.Instance.GetBaseDataPath(), "Users");
+        }
+        else
+        {
+            // Manual cross-platform path detection if SessionManager unavailable
+            string documentsPath = GetCrossPlatformDocumentsPath();
+            baseNavigationPath = Path.Combine(documentsPath, "VisionAssessmentData", "Users");
+        }
         
         if (!Directory.Exists(baseNavigationPath))
         {
-            Debug.LogError($"Navigation data folder not found: {baseNavigationPath}");
+            Debug.LogError($"Base navigation data folder not found: {baseNavigationPath}");
             return null;
         }
         
@@ -946,7 +978,7 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
         
         // If not found, list available folders for debugging
         Debug.LogWarning($"No session folder found for userID: {userID}");
-        Debug.Log($"Available session folders:");
+        Debug.Log($"Available session folders in: {baseNavigationPath}");
         foreach (string sessionFolder in sessionFolders)
         {
             string folderName = Path.GetFileName(sessionFolder);
@@ -954,6 +986,36 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
         }
         
         return null;
+    }
+    
+    /// <summary>
+    /// Cross-platform Documents folder detection (fallback if SessionManager unavailable)
+    /// </summary>
+    string GetCrossPlatformDocumentsPath()
+    {
+        switch (Application.platform)
+        {
+            case RuntimePlatform.WindowsPlayer:
+            case RuntimePlatform.WindowsEditor:
+                return System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+                
+            case RuntimePlatform.OSXPlayer:
+            case RuntimePlatform.OSXEditor:
+                return System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+                
+            case RuntimePlatform.LinuxPlayer:
+            case RuntimePlatform.LinuxEditor:
+                string linuxDocs = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+                if (string.IsNullOrEmpty(linuxDocs))
+                {
+                    string home = System.Environment.GetEnvironmentVariable("HOME");
+                    return Path.Combine(home, "Documents");
+                }
+                return linuxDocs;
+                
+            default:
+                return Application.persistentDataPath;
+        }
     }
     
     // Add keyboard support for Enter key
@@ -969,14 +1031,15 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
         }
     }
     
-    // Add context menu for testing
+    // Add context menu for testing and debugging
     [ContextMenu("Debug: Show User Session Path")]
     void DebugShowUserSessionPath()
     {
-        string userSessionPath = FindUserSessionFolder();
+        string userSessionPath = FindUserSessionFolderCrossPlatform();
         if (!string.IsNullOrEmpty(userSessionPath))
         {
             Debug.Log($"User {userID} session path: {userSessionPath}");
+            Debug.Log($"Full path: {Path.GetFullPath(userSessionPath)}");
             
             // Show what's in the session folder
             string[] subFolders = Directory.GetDirectories(userSessionPath);
@@ -995,7 +1058,20 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
     [ContextMenu("Debug: List All User Sessions")]
     void DebugListAllUserSessions()
     {
-        string baseNavigationPath = Path.Combine(Application.persistentDataPath, "NavigationData", "Users");
+        string baseNavigationPath;
+        
+        if (SessionManager.Instance != null)
+        {
+            baseNavigationPath = Path.Combine(SessionManager.Instance.GetBaseDataPath(), "Users");
+        }
+        else
+        {
+            string documentsPath = GetCrossPlatformDocumentsPath();
+            baseNavigationPath = Path.Combine(documentsPath, "VisionAssessmentData", "Users");
+        }
+        
+        Debug.Log($"Looking for sessions in: {baseNavigationPath}");
+        Debug.Log($"Full path: {Path.GetFullPath(baseNavigationPath)}");
         
         if (Directory.Exists(baseNavigationPath))
         {
@@ -1004,13 +1080,40 @@ public class AlgorithmicAssessmentUI : MonoBehaviour
             foreach (string sessionFolder in sessionFolders)
             {
                 string folderName = Path.GetFileName(sessionFolder);
-                Debug.Log($"  - {folderName}");
+                System.DateTime createTime = Directory.GetCreationTime(sessionFolder);
+                Debug.Log($"  - {folderName} (Created: {createTime:yyyy-MM-dd HH:mm:ss})");
             }
         }
         else
         {
             Debug.LogError($"Base navigation path not found: {baseNavigationPath}");
         }
+    }
+    
+    [ContextMenu("Debug: Test Cross-Platform Save")]
+    void DebugTestCrossPlatformSave()
+    {
+        Debug.Log("Testing cross-platform save functionality...");
+        
+        // Create test assessment results
+        AlgorithmicAssessmentResults testResults = new AlgorithmicAssessmentResults();
+        testResults.centralVisionRating = 7;
+        testResults.leftPeripheralRating = 6;
+        testResults.rightPeripheralRating = 8;
+        testResults.completed = true;
+        testResults.assessmentDateTime = System.DateTime.Now.ToString();
+        
+        // Temporarily set test results
+        AlgorithmicAssessmentResults originalResults = assessmentResults;
+        assessmentResults = testResults;
+        
+        // Try to save
+        SaveAssessmentData();
+        
+        // Restore original results
+        assessmentResults = originalResults;
+        
+        Debug.Log("Cross-platform save test completed");
     }
 }
 

@@ -17,6 +17,18 @@ namespace Bhaptics.SDK2
     public class BhapticsEvent
     {
         
-        public const string LEFT_FULL_4 = "left_full_4";
+        public const string LEFT_100 = "left_100";
+        
+        public const string CENTRE_100 = "centre_100";
+        
+        public const string RIGHT_100 = "right_100";
+        
+        public const string RIGHT_BACK_100 = "right_back_100";
+        
+        public const string LEFT_BACK_100 = "left_back_100";
+        
+        public const string CENTRE_LEFTBACK_100 = "centre_leftback_100";
+        
+        public const string CENTRE_RIGHTBACK_100 = "centre_rightback_100";
     }
 }

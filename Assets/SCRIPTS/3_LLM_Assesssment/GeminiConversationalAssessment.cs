@@ -9,9 +9,7 @@ using System.Linq;
 
 /// <summary>
 /// Real-time LLM Conversational Assessment System
-/// Conducts intelligent, adaptive conversation based on navigation data + pre-analysis
-/// Each question builds on previous responses for natural dialogue flow
-/// UPDATED: Enhanced navigation data loading with fallback search
+/// Updated with new enhancement modality options using EnhancementConfiguration
 /// </summary>
 public class GeminiConversationalAssessment : MonoBehaviour
 {
@@ -38,13 +36,13 @@ public class GeminiConversationalAssessment : MonoBehaviour
     private int questionCount = 0;
     private bool assessmentComplete = false;
     private bool conversationInProgress = false;
-    private string fullContextPrompt = ""; // Master context for the entire conversation
+    private string fullContextPrompt = "";
     
-    // Results
-    private LLMAssessmentResults assessmentResults;
+    // Results - using new data structure
+    private EnhancementAssessmentResults assessmentResults;
     
     // Events
-    public static System.Action<LLMAssessmentResults> OnAssessmentCompleted;
+    public static System.Action<EnhancementAssessmentResults> OnAssessmentCompleted;
     
     void Start()
     {
@@ -56,10 +54,10 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     void InitializeAssessment()
     {
-        Debug.Log("ðŸ¤– Initializing Real-time LLM Conversational Assessment...");
+        Debug.Log("Initializing Real-time LLM Conversational Assessment...");
         
-        // Initialize results structure
-        assessmentResults = new LLMAssessmentResults();
+        // Initialize results structure with new data
+        assessmentResults = new EnhancementAssessmentResults();
         assessmentResults.conversationDateTime = System.DateTime.Now.ToString();
         assessmentResults.conversationLog = new List<ChatMessage>();
         assessmentResults.questionsAsked = new List<string>();
@@ -69,10 +67,10 @@ public class GeminiConversationalAssessment : MonoBehaviour
         LoadNavigationData();
         LoadPreAnalysisData();
         
-        // Create master context prompt that will be used throughout conversation
+        // Create master context prompt
         CreateMasterContextPrompt();
         
-        // Start the real-time conversation
+        // Start the conversation
         StartCoroutine(BeginRealTimeConversation());
     }
     
@@ -84,21 +82,17 @@ public class GeminiConversationalAssessment : MonoBehaviour
             
             if (session == null)
             {
-                Debug.LogError("âŒ No current session found in SessionManager!");
+                Debug.LogError("No current session found in SessionManager!");
                 return;
             }
             
-            Debug.Log($"ðŸ” Looking for navigation data in session: {session.userID}");
-            Debug.Log($"ðŸ“Š Completed trials: [{string.Join(", ", session.completedTrials)}]");
+            Debug.Log($"Looking for navigation data in session: {session.userID}");
             
-            // OPTION 1: Try to find from completed trials first
             string latestNavigationTrial = FindLatestNavigationTrial(session.completedTrials);
             
-            // OPTION 2: If no completed trials found, search for actual data files
             if (string.IsNullOrEmpty(latestNavigationTrial))
             {
-                Debug.LogWarning("âš ï¸ No completed navigation trials found in session data.");
-                Debug.Log("ðŸ” Searching for actual navigation data files...");
+                Debug.LogWarning("No completed navigation trials found in session data.");
                 latestNavigationTrial = FindNavigationDataFiles();
             }
             
@@ -106,24 +100,19 @@ public class GeminiConversationalAssessment : MonoBehaviour
             {
                 string trialPath = SessionManager.Instance.GetTrialDataPath(latestNavigationTrial);
                 LoadNavigationSessionFromPath(trialPath);
-                Debug.Log($"ðŸ“Š Loaded navigation data from trial: {latestNavigationTrial}");
+                Debug.Log($"Loaded navigation data from trial: {latestNavigationTrial}");
             }
             else
             {
-                Debug.LogError("âŒ No navigation data found anywhere!");
-                Debug.Log("ðŸ’¡ Make sure you have completed at least one navigation trial first.");
-                // Continue anyway - we can still do a conversation without navigation data
+                Debug.LogError("No navigation data found anywhere!");
             }
         }
         else
         {
-            Debug.LogWarning("âš ï¸ SessionManager not available - using fallback data loading");
+            Debug.LogWarning("SessionManager not available - using fallback data loading");
         }
     }
     
-    /// <summary>
-    /// Search for actual navigation_data.json files in the session folders
-    /// </summary>
     string FindNavigationDataFiles()
     {
         if (SessionManager.Instance == null) return null;
@@ -132,120 +121,36 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         if (string.IsNullOrEmpty(sessionPath) || !Directory.Exists(sessionPath))
         {
-            Debug.LogError($"âŒ Session path not found: {sessionPath}");
+            Debug.LogError($"Session path not found: {sessionPath}");
             return null;
         }
         
-        // List of navigation trials to check (in priority order)
         string[] navigationTrials = { "baseline", "short_llm", "short_algorithmic", "long_llm", "long_algorithmic" };
-        
-        Debug.Log($"ðŸ” Searching in session path: {sessionPath}");
         
         foreach (string trial in navigationTrials)
         {
             string trialPath = SessionManager.Instance.GetTrialDataPath(trial);
             string navigationDataPath = Path.Combine(trialPath, "navigation_data.json");
             
-            Debug.Log($"ðŸ” Checking: {navigationDataPath}");
-            
             if (File.Exists(navigationDataPath))
             {
-                Debug.Log($"âœ… Found navigation data for trial: {trial}");
-                
-                // Check if the file has actual content
                 try
                 {
                     string jsonContent = File.ReadAllText(navigationDataPath);
-                    if (!string.IsNullOrEmpty(jsonContent) && jsonContent.Length > 100) // Basic validation
+                    if (!string.IsNullOrEmpty(jsonContent) && jsonContent.Length > 100)
                     {
-                        Debug.Log($"âœ… Navigation data file is valid for trial: {trial}");
+                        Debug.Log($"Found navigation data for trial: {trial}");
                         return trial;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"âš ï¸ Navigation data file exists but appears empty: {trial}");
                     }
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"âš ï¸ Could not read navigation data for {trial}: {e.Message}");
+                    Debug.LogWarning($"Could not read navigation data for {trial}: {e.Message}");
                 }
             }
-            else
-            {
-                Debug.Log($"âŒ No navigation data found for trial: {trial}");
-            }
         }
-        
-        // If we get here, no navigation data was found
-        Debug.LogError("âŒ No navigation_data.json files found in any trial folders!");
-        
-        // List what's actually in the session folder for debugging
-        DebugListSessionContents();
         
         return null;
-    }
-    
-    /// <summary>
-    /// Debug helper to show what's actually in the session folder
-    /// </summary>
-    void DebugListSessionContents()
-    {
-        if (SessionManager.Instance == null) return;
-        
-        string sessionPath = SessionManager.Instance.GetSessionPath();
-        
-        if (!Directory.Exists(sessionPath))
-        {
-            Debug.LogError($"âŒ Session directory doesn't exist: {sessionPath}");
-            return;
-        }
-        
-        Debug.Log($"ðŸ“ SESSION FOLDER CONTENTS: {sessionPath}");
-        
-        try
-        {
-            string[] subDirectories = Directory.GetDirectories(sessionPath);
-            
-            foreach (string dir in subDirectories)
-            {
-                string dirName = Path.GetFileName(dir);
-                Debug.Log($"  ðŸ“ {dirName}/");
-                
-                // Check if this looks like a trial folder
-                if (dirName.Contains("Navigation") || dirName.Contains("Assessment"))
-                {
-                    // List files in this directory
-                    string[] files = Directory.GetFiles(dir);
-                    foreach (string file in files)
-                    {
-                        string fileName = Path.GetFileName(file);
-                        long fileSize = new FileInfo(file).Length;
-                        Debug.Log($"    ðŸ“„ {fileName} ({fileSize} bytes)");
-                    }
-                    
-                    // Check subdirectories
-                    string[] subDirs = Directory.GetDirectories(dir);
-                    foreach (string subDir in subDirs)
-                    {
-                        string subDirName = Path.GetFileName(subDir);
-                        Debug.Log($"    ðŸ“ {subDirName}/");
-                        
-                        // If it's a specific trial subfolder, check for navigation_data.json
-                        string navDataPath = Path.Combine(subDir, "navigation_data.json");
-                        if (File.Exists(navDataPath))
-                        {
-                            long navDataSize = new FileInfo(navDataPath).Length;
-                            Debug.Log($"      âœ… navigation_data.json ({navDataSize} bytes)");
-                        }
-                    }
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"âŒ Error listing session contents: {e.Message}");
-        }
     }
     
     string FindLatestNavigationTrial(List<string> completedTrials)
@@ -271,11 +176,11 @@ public class GeminiConversationalAssessment : MonoBehaviour
         {
             string jsonData = File.ReadAllText(jsonPath);
             currentSession = JsonUtility.FromJson<NavigationSession>(jsonData);
-            Debug.Log($"ðŸ“ˆ Navigation session loaded: {currentSession.totalCollisions} collisions, {currentSession.duration:F1}s duration");
+            Debug.Log($"Navigation session loaded: {currentSession.totalCollisions} collisions, {currentSession.duration:F1}s duration");
         }
         else
         {
-            Debug.LogError($"âŒ Navigation data not found at: {jsonPath}");
+            Debug.LogError($"Navigation data not found at: {jsonPath}");
         }
     }
     
@@ -285,21 +190,19 @@ public class GeminiConversationalAssessment : MonoBehaviour
         {
             string sessionPath = SessionManager.Instance.GetSessionPath();
             
-            // Load scene analysis data
             string sceneAnalysisPath = Path.Combine(sessionPath, "01_SceneAnalysis", "scene_analysis.json");
             if (File.Exists(sceneAnalysisPath))
             {
                 string sceneJson = File.ReadAllText(sceneAnalysisPath);
                 sceneAnalysisData = JsonUtility.FromJson<SceneAnalysisData>(sceneJson);
-                Debug.Log($"ðŸ›ï¸ Scene analysis loaded: {sceneAnalysisData.staticObjects?.Count ?? 0} objects");
+                Debug.Log($"Scene analysis loaded: {sceneAnalysisData.staticObjects?.Count ?? 0} objects");
             }
             
-            // Load Gemini pre-analysis text
             string preAnalysisPath = Path.Combine(sessionPath, "01_SceneAnalysis", "gemini_route_pre_analysis.txt");
             if (File.Exists(preAnalysisPath))
             {
                 preAnalysisText = File.ReadAllText(preAnalysisPath);
-                Debug.Log($"ðŸ§  Pre-analysis loaded: {preAnalysisText.Length} characters");
+                Debug.Log($"Pre-analysis loaded: {preAnalysisText.Length} characters");
             }
         }
     }
@@ -352,7 +255,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
         if (!string.IsNullOrEmpty(preAnalysisText))
         {
             contextBuilder.AppendLine("PRE-NAVIGATION ROUTE ANALYSIS:");
-            // Include key insights (truncated for token management)
             string truncatedPreAnalysis = preAnalysisText.Length > 800 ? 
                 preAnalysisText.Substring(0, 800) + "..." : preAnalysisText;
             contextBuilder.AppendLine(truncatedPreAnalysis);
@@ -368,23 +270,22 @@ public class GeminiConversationalAssessment : MonoBehaviour
         contextBuilder.AppendLine("6. Stop asking questions when you have enough information to make enhancement decisions");
         contextBuilder.AppendLine($"7. MAXIMUM {maxQuestions} questions total");
         contextBuilder.AppendLine();
-        contextBuilder.AppendLine("GOAL: Determine the best object prioritization and alert modalities for this person's navigation assistance.");
+        contextBuilder.AppendLine("GOAL: Determine the best navigation assistance modalities for this person.");
         contextBuilder.AppendLine();
         
         fullContextPrompt = contextBuilder.ToString();
         
-        Debug.Log($"ðŸ§  Created master context prompt: {fullContextPrompt.Length} characters");
+        Debug.Log($"Created master context prompt: {fullContextPrompt.Length} characters");
     }
     
     IEnumerator BeginRealTimeConversation()
     {
-        // Show welcome message
         if (conversationUI != null)
         {
             conversationUI.ShowSystemMessage("Welcome to your Enhanced Vision Assessment! I'm going to have a conversation with you to understand your vision in detail.");
             yield return new WaitForSeconds(2f);
             
-            conversationUI.ShowSystemMessage("This will help me create a detailed map of your vision capabilities at different angles and distances.");
+            conversationUI.ShowSystemMessage("This will help me create personalized navigation enhancements for you.");
             yield return new WaitForSeconds(2f);
             
             if (currentSession != null)
@@ -397,13 +298,12 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             yield return new WaitForSeconds(1f);
             
-            conversationUI.ShowSystemMessage("âœ… AI interviewer connected. Beginning personalized assessment...");
+            conversationUI.ShowSystemMessage("AI interviewer connected. Beginning personalized assessment...");
             yield return new WaitForSeconds(1f);
         }
         
         conversationInProgress = true;
         
-        // Ask the first question
         yield return StartCoroutine(AskNextQuestion());
     }
     
@@ -411,14 +311,14 @@ public class GeminiConversationalAssessment : MonoBehaviour
     {
         if (questionCount >= maxQuestions)
         {
-            Debug.Log("ðŸ“‹ Reached maximum question limit, proceeding to final decisions");
+            Debug.Log("Reached maximum question limit, proceeding to final decisions");
             yield return StartCoroutine(GenerateFinalDecisions());
             yield break;
         }
         
         questionCount++;
         
-        Debug.Log($"ðŸ¤” Generating question {questionCount}/{maxQuestions}...");
+        Debug.Log($"Generating question {questionCount}/{maxQuestions}...");
         
         if (conversationUI != null)
         {
@@ -434,10 +334,8 @@ public class GeminiConversationalAssessment : MonoBehaviour
     {
         StringBuilder promptBuilder = new StringBuilder();
         
-        // Add the master context
         promptBuilder.AppendLine(fullContextPrompt);
         
-        // Add conversation history
         if (conversationHistory.Count > 0)
         {
             promptBuilder.AppendLine("CONVERSATION SO FAR:");
@@ -449,7 +347,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
             promptBuilder.AppendLine();
         }
         
-        // Current task
         if (questionCount == 1)
         {
             if (currentSession != null)
@@ -499,7 +396,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"âŒ Question request failed: {request.error}");
+                Debug.LogError($"Question request failed: {request.error}");
                 HandleQuestionRequestFailure();
             }
         }
@@ -516,73 +413,62 @@ public class GeminiConversationalAssessment : MonoBehaviour
             {
                 string responseText = geminiResponse.candidates[0].content.parts[0].text.Trim();
                 
-                Debug.Log($"ðŸ¤– AI Response: {responseText}");
+                Debug.Log($"AI Response: {responseText}");
                 
-                // Check if AI wants to stop asking questions
                 if (responseText.ToUpper().Contains("ENOUGH_INFO:"))
                 {
-                    Debug.Log("ðŸŽ¯ AI has enough information, proceeding to decisions");
+                    Debug.Log("AI has enough information, proceeding to decisions");
                     StartCoroutine(GenerateFinalDecisions());
                     return;
                 }
                 
-                // Extract question from response
                 string question = ExtractQuestionFromResponse(responseText);
                 
                 if (!string.IsNullOrEmpty(question))
                 {
-                    // Show the question and wait for user response
                     ShowQuestionAndWaitForResponse(question);
                 }
                 else
                 {
-                    Debug.LogWarning("âš ï¸ Could not extract question from AI response, using fallback");
+                    Debug.LogWarning("Could not extract question from AI response, using fallback");
                     ShowQuestionAndWaitForResponse("Can you tell me more about any challenges you experienced during navigation?");
                 }
             }
             else
             {
-                Debug.LogError("âŒ Invalid response format from Gemini");
+                Debug.LogError("Invalid response format from Gemini");
                 HandleQuestionRequestFailure();
             }
         }
         catch (Exception e)
         {
-            Debug.LogError($"âŒ Error processing question response: {e.Message}");
+            Debug.LogError($"Error processing question response: {e.Message}");
             HandleQuestionRequestFailure();
         }
     }
     
     string ExtractQuestionFromResponse(string response)
     {
-        // Look for "QUESTION:" prefix
         if (response.ToUpper().Contains("QUESTION:"))
         {
             int questionStart = response.ToUpper().IndexOf("QUESTION:") + "QUESTION:".Length;
             string question = response.Substring(questionStart).Trim();
-            
-            // Clean up any extra formatting
             question = question.Replace("\n", " ").Trim();
-            
             return question;
         }
         
-        // If no prefix, assume the whole response is the question
         return response.Trim();
     }
     
     void ShowQuestionAndWaitForResponse(string question)
     {
-        // Add question to our tracking
         assessmentResults.questionsAsked.Add(question);
         
-        // Show question in UI
         if (conversationUI != null)
         {
             conversationUI.ShowSystemMessage(question);
         }
         
-        // Add to conversation history
         ChatMessage questionMessage = new ChatMessage
         {
             sender = "assistant",
@@ -593,7 +479,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
         conversationHistory.Add(questionMessage);
         assessmentResults.conversationLog.Add(questionMessage);
         
-        // Wait for user response
         StartCoroutine(WaitForUserResponse(question));
     }
     
@@ -606,7 +491,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
         {
             conversationUI.SetWaitingForInput(true);
             
-            // Subscribe to user response
             System.Action<string> responseHandler = (response) =>
             {
                 userResponse = response;
@@ -615,30 +499,25 @@ public class GeminiConversationalAssessment : MonoBehaviour
             
             conversationUI.OnUserSubmittedResponse += responseHandler;
             
-            // Wait for response
             yield return new WaitUntil(() => responseReceived);
             
-            // Unsubscribe
             conversationUI.OnUserSubmittedResponse -= responseHandler;
             conversationUI.SetWaitingForInput(false);
         }
         else
         {
-            // Fallback if no UI
             yield return new WaitForSeconds(1f);
             userResponse = "Test response";
             responseReceived = true;
         }
         
-        // Handle the response
         HandleUserResponse(question, userResponse);
     }
     
     void HandleUserResponse(string question, string response)
     {
-        Debug.Log($"ðŸ‘¤ User responded: {response}");
+        Debug.Log($"User responded: {response}");
         
-        // Record the response
         ChatMessage responseMessage = new ChatMessage
         {
             sender = "user",
@@ -651,27 +530,20 @@ public class GeminiConversationalAssessment : MonoBehaviour
         assessmentResults.conversationLog.Add(responseMessage);
         assessmentResults.extractedResponses[question] = response;
         
-        // DON'T show user message in UI - the UI already handled this!
-        // REMOVED: conversationUI.ShowUserMessage(response);
-        
-        // Continue conversation or finish
         if (response.ToUpper() == "SKIPPED" || questionCount >= maxQuestions)
         {
-            // Either skipped or hit limit
             StartCoroutine(GenerateFinalDecisions());
         }
         else
         {
-            // Ask next question
             StartCoroutine(AskNextQuestion());
         }
     }
     
     void HandleQuestionRequestFailure()
     {
-        Debug.LogWarning("âš ï¸ Question generation failed, using fallback question");
+        Debug.LogWarning("Question generation failed, using fallback question");
         
-        // Use fallback questions based on question count
         string[] fallbackQuestions = {
             "How confident do you feel when navigating around vehicles or moving objects?",
             "Do you find it easier to detect obstacles on your left side or right side?",
@@ -691,7 +563,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     IEnumerator GenerateFinalDecisions()
     {
-        Debug.Log("ðŸŽ¯ Generating final enhancement decisions based on conversation...");
+        Debug.Log("Generating final enhancement decisions based on conversation...");
         
         conversationInProgress = false;
         
@@ -712,10 +584,8 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("You are making final personalized navigation assistance decisions based on comprehensive data:");
         promptBuilder.AppendLine();
         
-        // Include the master context
         promptBuilder.AppendLine(fullContextPrompt);
         
-        // Include the full conversation
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("COMPLETE CONVERSATION:");
         foreach (ChatMessage message in conversationHistory)
@@ -726,49 +596,70 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("DECISION TASK:");
-        promptBuilder.AppendLine("Based on BOTH observed navigation behavior AND conversation responses, make these decisions:");
+        promptBuilder.AppendLine("Based on BOTH observed navigation behavior AND conversation responses, choose enhancement modalities to help this user navigate:");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("1. OBJECT PRIORITIZATION:");
-        promptBuilder.AppendLine("   List 3-5 object types for HIGH priority alerts");
-        promptBuilder.AppendLine("   List 3-5 object types for MEDIUM priority alerts");
-        promptBuilder.AppendLine("   List remaining types for LOW priority");
+        promptBuilder.AppendLine("AVAILABLE MODALITIES (choose any combination, but must apply at least one enhancement):");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("2. MODALITY SELECTION:");
-        promptBuilder.AppendLine("   Audio alerts: YES/NO");
-        promptBuilder.AppendLine("   Haptic feedback: YES/NO");
-        promptBuilder.AppendLine("   Spearcons: YES/NO");
-        promptBuilder.AppendLine("   Visual enhancements: YES/NO");
+        promptBuilder.AppendLine("1. VISUAL ENHANCEMENTS:");
+        promptBuilder.AppendLine("   - Navigation Line:");
+        promptBuilder.AppendLine("     * Line width (0.2-0.6): Higher values = thicker, more visible line");
+        promptBuilder.AppendLine("     * Opacity (0-100%): Higher values = more solid/opaque, lower = more transparent");
+        promptBuilder.AppendLine("   - Bounding Box (shows rectangular outlines around detected objects):");
+        promptBuilder.AppendLine("     * Line width (0.02-0.2): Higher values = thicker box outlines, more prominent");
+        promptBuilder.AppendLine("     * Opacity (0-100%): Higher values = more solid boxes, lower = more subtle");
+        promptBuilder.AppendLine("     * Range (5-50m): Distance at which boxes appear - higher = boxes shown from farther away");
+        promptBuilder.AppendLine("   - Can be disabled if visual information would be overwhelming or unhelpful");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("3. ALERT DISTANCES:");
-        promptBuilder.AppendLine("   Alert distance (2-8 meters)");
-        promptBuilder.AppendLine("   Warning distance (1-4 meters)");
-        promptBuilder.AppendLine("   Critical distance (0.5-2 meters)");
+        promptBuilder.AppendLine("2. AUDIO ENHANCEMENTS (select only ONE audio option):");
+        promptBuilder.AppendLine("   - TTS Speech: Speaks the name of the nearest object aloud");
+        promptBuilder.AppendLine("     * Interval (0.15-5s): How often announcements occur - lower = more frequent updates");
+        promptBuilder.AppendLine("   - Spatial Spearcon: Plays directional sound cues for the nearest object");
+        promptBuilder.AppendLine("     * Interval (0.5-3s): How often sound cues play - lower = more frequent audio");
+        promptBuilder.AppendLine("   - Spatial Spearcon with Distance Threshold: Same as above but only for distant objects");
+        promptBuilder.AppendLine("     * Interval (0.5-3s): How often sound cues play - lower = more frequent audio");
+        promptBuilder.AppendLine("     * Distance (0-10m): Only objects beyond this distance trigger audio - higher = fewer close objects announced");
+        promptBuilder.AppendLine("   - Can be disabled if audio would be distracting or user prefers silence");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("4. SPEED RECOMMENDATIONS:");
-        promptBuilder.AppendLine("   Recommend slower speed: YES/NO");
-        promptBuilder.AppendLine("   Speed multiplier (0.5-1.0 if slower recommended)");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("5. REASONING:");
-        promptBuilder.AppendLine("   Provide 2-3 sentence explanation connecting observed behavior to conversation insights");
+        promptBuilder.AppendLine("3. HAPTIC ENHANCEMENTS (uses haptic vest with vibration feedback):");
+        promptBuilder.AppendLine("   If haptics chosen, ALL settings must be configured:");
+        promptBuilder.AppendLine("   - Central region (middle of chest): Vibrates for objects directly ahead");
+        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength for distant objects");
+        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength for very close objects");
+        promptBuilder.AppendLine("   - Left region (left side of chest): Vibrates for objects to the left");
+        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength for distant objects");
+        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength for very close objects");
+        promptBuilder.AppendLine("   - Right region (right side of chest): Vibrates for objects to the right");
+        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength for distant objects");
+        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength for very close objects");
+        promptBuilder.AppendLine("   - Number of nearest objects to convey: 1, 2, or 3");
+        promptBuilder.AppendLine("     * 1 = only closest object causes vibration (simple, less overwhelming)");
+        promptBuilder.AppendLine("     * 2-3 = multiple objects can vibrate simultaneously (more information, potentially more complex)");
+        promptBuilder.AppendLine("   - Can be disabled if physical vibrations would be uncomfortable or distracting");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("RESPONSE FORMAT - Use this exact structure:");
-        promptBuilder.AppendLine("HIGH_PRIORITY: Car,Bus,Pole");
-        promptBuilder.AppendLine("MEDIUM_PRIORITY: Tree,Bench,Wall");
-        promptBuilder.AppendLine("LOW_PRIORITY: Building,Ground");
-        promptBuilder.AppendLine("AUDIO: YES");
-        promptBuilder.AppendLine("HAPTICS: NO");
-        promptBuilder.AppendLine("SPEARCONS: YES");
-        promptBuilder.AppendLine("VISUAL: NO");
-        promptBuilder.AppendLine("ALERT_DISTANCE: 4.0");
-        promptBuilder.AppendLine("WARNING_DISTANCE: 2.0");
-        promptBuilder.AppendLine("CRITICAL_DISTANCE: 1.0");
-        promptBuilder.AppendLine("SLOWER_SPEED: NO");
-        promptBuilder.AppendLine("SPEED_MULTIPLIER: 1.0");
+        promptBuilder.AppendLine("VISUAL_ENABLED: YES/NO");
+        promptBuilder.AppendLine("NAV_LINE_WIDTH: 0.4");
+        promptBuilder.AppendLine("NAV_LINE_OPACITY: 80");
+        promptBuilder.AppendLine("BBOX_WIDTH: 0.1");
+        promptBuilder.AppendLine("BBOX_OPACITY: 60");
+        promptBuilder.AppendLine("BBOX_RANGE: 25");
+        promptBuilder.AppendLine("AUDIO_ENABLED: YES/NO");
+        promptBuilder.AppendLine("AUDIO_TYPE: TTS/SPEARCON/SPEARCON_DISTANCE");
+        promptBuilder.AppendLine("AUDIO_INTERVAL: 1.0");
+        promptBuilder.AppendLine("AUDIO_DISTANCE: 5.0");
+        promptBuilder.AppendLine("HAPTIC_ENABLED: YES/NO");
+        promptBuilder.AppendLine("HAPTIC_CENTRAL_MIN: 30");
+        promptBuilder.AppendLine("HAPTIC_CENTRAL_MAX: 80");
+        promptBuilder.AppendLine("HAPTIC_LEFT_MIN: 30");
+        promptBuilder.AppendLine("HAPTIC_LEFT_MAX: 80");
+        promptBuilder.AppendLine("HAPTIC_RIGHT_MIN: 30");
+        promptBuilder.AppendLine("HAPTIC_RIGHT_MAX: 80");
+        promptBuilder.AppendLine("HAPTIC_OBJECT_COUNT: 2");
         promptBuilder.AppendLine("REASONING: [Your detailed reasoning here]");
         
         return promptBuilder.ToString();
     }
-    
+        
     IEnumerator SendFinalDecisionRequest(string prompt)
     {
         string requestJson = CreateGeminiRequestJson(prompt);
@@ -788,7 +679,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"âŒ Final decision request failed: {request.error}");
+                Debug.LogError($"Final decision request failed: {request.error}");
                 CreateFallbackDecisions();
                 CompleteAssessment();
             }
@@ -813,14 +704,14 @@ public class GeminiConversationalAssessment : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("âš ï¸ Invalid decision response, using fallback");
+                Debug.LogWarning("Invalid decision response, using fallback");
                 CreateFallbackDecisions();
                 CompleteAssessment();
             }
         }
         catch (Exception e)
         {
-            Debug.LogError($"âŒ Error parsing final decisions: {e.Message}");
+            Debug.LogError($"Error parsing final decisions: {e.Message}");
             CreateFallbackDecisions();
             CompleteAssessment();
         }
@@ -828,7 +719,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     void ParseFinalDecisions(string decisionText)
     {
-        AppliedEnhancements decisions = new AppliedEnhancements();
+        EnhancementConfiguration decisions = new EnhancementConfiguration();
         decisions.sourceAssessment = "llm";
         
         string[] lines = decisionText.Split('\n');
@@ -837,72 +728,48 @@ public class GeminiConversationalAssessment : MonoBehaviour
         {
             string trimmedLine = line.Trim();
             
-            if (trimmedLine.StartsWith("HIGH_PRIORITY:"))
-            {
-                string objectList = trimmedLine.Substring("HIGH_PRIORITY:".Length).Trim();
-                decisions.highPriorityObjects = ParseObjectList(objectList);
-            }
-            else if (trimmedLine.StartsWith("MEDIUM_PRIORITY:"))
-            {
-                string objectList = trimmedLine.Substring("MEDIUM_PRIORITY:".Length).Trim();
-                decisions.mediumPriorityObjects = ParseObjectList(objectList);
-            }
-            else if (trimmedLine.StartsWith("LOW_PRIORITY:"))
-            {
-                string objectList = trimmedLine.Substring("LOW_PRIORITY:".Length).Trim();
-                decisions.lowPriorityObjects = ParseObjectList(objectList);
-            }
-            else if (trimmedLine.StartsWith("AUDIO:"))
-            {
-                decisions.useAudio = ParseBooleanValue(trimmedLine, "AUDIO:");
-            }
-            else if (trimmedLine.StartsWith("HAPTICS:"))
-            {
-                decisions.useHaptics = ParseBooleanValue(trimmedLine, "HAPTICS:");
-            }
-            else if (trimmedLine.StartsWith("SPEARCONS:"))
-            {
-                decisions.useSpearcons = ParseBooleanValue(trimmedLine, "SPEARCONS:");
-            }
-            else if (trimmedLine.StartsWith("VISUAL:"))
-            {
-                decisions.useVisualEnhancements = ParseBooleanValue(trimmedLine, "VISUAL:");
-            }
-            else if (trimmedLine.StartsWith("ALERT_DISTANCE:"))
-            {
-                decisions.alertDistance = ParseFloatValue(trimmedLine, "ALERT_DISTANCE:", 4.0f);
-            }
-            else if (trimmedLine.StartsWith("WARNING_DISTANCE:"))
-            {
-                decisions.warningDistance = ParseFloatValue(trimmedLine, "WARNING_DISTANCE:", 2.0f);
-            }
-            else if (trimmedLine.StartsWith("CRITICAL_DISTANCE:"))
-            {
-                decisions.criticalDistance = ParseFloatValue(trimmedLine, "CRITICAL_DISTANCE:", 1.0f);
-            }
-            else if (trimmedLine.StartsWith("SLOWER_SPEED:"))
-            {
-                decisions.recommendSlowerSpeed = ParseBooleanValue(trimmedLine, "SLOWER_SPEED:");
-            }
-            else if (trimmedLine.StartsWith("SPEED_MULTIPLIER:"))
-            {
-                decisions.recommendedSpeedMultiplier = ParseFloatValue(trimmedLine, "SPEED_MULTIPLIER:", 1.0f);
-            }
+            if (trimmedLine.StartsWith("VISUAL_ENABLED:"))
+                decisions.visualEnabled = ParseBooleanValue(trimmedLine, "VISUAL_ENABLED:");
+            else if (trimmedLine.StartsWith("NAV_LINE_WIDTH:"))
+                decisions.navLineWidth = ParseFloatValue(trimmedLine, "NAV_LINE_WIDTH:", 0.4f);
+            else if (trimmedLine.StartsWith("NAV_LINE_OPACITY:"))
+                decisions.navLineOpacity = ParseFloatValue(trimmedLine, "NAV_LINE_OPACITY:", 80f);
+            else if (trimmedLine.StartsWith("BBOX_WIDTH:"))
+                decisions.bboxWidth = ParseFloatValue(trimmedLine, "BBOX_WIDTH:", 0.1f);
+            else if (trimmedLine.StartsWith("BBOX_OPACITY:"))
+                decisions.bboxOpacity = ParseFloatValue(trimmedLine, "BBOX_OPACITY:", 60f);
+            else if (trimmedLine.StartsWith("BBOX_RANGE:"))
+                decisions.bboxRange = ParseFloatValue(trimmedLine, "BBOX_RANGE:", 25f);
+            else if (trimmedLine.StartsWith("AUDIO_ENABLED:"))
+                decisions.audioEnabled = ParseBooleanValue(trimmedLine, "AUDIO_ENABLED:");
+            else if (trimmedLine.StartsWith("AUDIO_TYPE:"))
+                decisions.audioType = ParseStringValue(trimmedLine, "AUDIO_TYPE:", "TTS");
+            else if (trimmedLine.StartsWith("AUDIO_INTERVAL:"))
+                decisions.audioInterval = ParseFloatValue(trimmedLine, "AUDIO_INTERVAL:", 1.0f);
+            else if (trimmedLine.StartsWith("AUDIO_DISTANCE:"))
+                decisions.audioDistance = ParseFloatValue(trimmedLine, "AUDIO_DISTANCE:", 5.0f);
+            else if (trimmedLine.StartsWith("HAPTIC_ENABLED:"))
+                decisions.hapticEnabled = ParseBooleanValue(trimmedLine, "HAPTIC_ENABLED:");
+            else if (trimmedLine.StartsWith("HAPTIC_CENTRAL_MIN:"))
+                decisions.hapticCentralMin = ParseFloatValue(trimmedLine, "HAPTIC_CENTRAL_MIN:", 30f);
+            else if (trimmedLine.StartsWith("HAPTIC_CENTRAL_MAX:"))
+                decisions.hapticCentralMax = ParseFloatValue(trimmedLine, "HAPTIC_CENTRAL_MAX:", 80f);
+            else if (trimmedLine.StartsWith("HAPTIC_LEFT_MIN:"))
+                decisions.hapticLeftMin = ParseFloatValue(trimmedLine, "HAPTIC_LEFT_MIN:", 30f);
+            else if (trimmedLine.StartsWith("HAPTIC_LEFT_MAX:"))
+                decisions.hapticLeftMax = ParseFloatValue(trimmedLine, "HAPTIC_LEFT_MAX:", 80f);
+            else if (trimmedLine.StartsWith("HAPTIC_RIGHT_MIN:"))
+                decisions.hapticRightMin = ParseFloatValue(trimmedLine, "HAPTIC_RIGHT_MIN:", 30f);
+            else if (trimmedLine.StartsWith("HAPTIC_RIGHT_MAX:"))
+                decisions.hapticRightMax = ParseFloatValue(trimmedLine, "HAPTIC_RIGHT_MAX:", 80f);
+            else if (trimmedLine.StartsWith("HAPTIC_OBJECT_COUNT:"))
+                decisions.hapticObjectCount = (int)ParseFloatValue(trimmedLine, "HAPTIC_OBJECT_COUNT:", 2f);
         }
         
-        assessmentResults.llmDecisions = decisions;
+        assessmentResults.enhancementConfiguration = decisions;
         
-        Debug.Log("âœ… Successfully parsed LLM enhancement decisions from real-time conversation");
-        Debug.Log($"ðŸŽ¯ High priority: {string.Join(", ", decisions.highPriorityObjects)}");
-        Debug.Log($"ðŸ”Š Audio: {decisions.useAudio}, Haptics: {decisions.useHaptics}");
-    }
-    
-    List<string> ParseObjectList(string objectList)
-    {
-        return objectList.Split(',')
-            .Select(obj => obj.Trim())
-            .Where(obj => !string.IsNullOrEmpty(obj))
-            .ToList();
+        Debug.Log("Successfully parsed LLM enhancement decisions from real-time conversation");
+        Debug.Log($"Visual: {decisions.visualEnabled}, Audio: {decisions.audioEnabled}, Haptic: {decisions.hapticEnabled}");
     }
     
     bool ParseBooleanValue(string line, string prefix)
@@ -921,6 +788,12 @@ public class GeminiConversationalAssessment : MonoBehaviour
         return defaultValue;
     }
     
+    string ParseStringValue(string line, string prefix, string defaultValue)
+    {
+        string value = line.Substring(prefix.Length).Trim();
+        return string.IsNullOrEmpty(value) ? defaultValue : value;
+    }
+    
     string ExtractReasoning(string decisionText)
     {
         string[] lines = decisionText.Split('\n');
@@ -932,7 +805,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
                 StringBuilder reasoning = new StringBuilder();
                 reasoning.AppendLine(lines[i].Substring("REASONING:".Length).Trim());
                 
-                // Include subsequent lines until we hit another directive or end
                 for (int j = i + 1; j < lines.Length; j++)
                 {
                     string line = lines[j].Trim();
@@ -950,43 +822,27 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     void CreateFallbackDecisions()
     {
-        Debug.Log("ðŸ”§ Creating fallback enhancement decisions...");
+        Debug.Log("Creating fallback enhancement decisions...");
         
-        AppliedEnhancements fallbackDecisions = new AppliedEnhancements();
+        EnhancementConfiguration fallbackDecisions = new EnhancementConfiguration();
         fallbackDecisions.sourceAssessment = "llm_fallback";
         
-        // Basic fallback decisions based on navigation data if available
-        if (currentSession != null && currentSession.collisionsByObjectType != null)
-        {
-            var topCollisionObjects = currentSession.collisionsByObjectType
-                .OrderByDescending(kvp => kvp.Value)
-                .Take(3)
-                .Select(kvp => kvp.Key)
-                .ToList();
-            
-            fallbackDecisions.highPriorityObjects = topCollisionObjects;
-        }
-        else
-        {
-            fallbackDecisions.highPriorityObjects = new List<string> { "Car", "Pole", "Wall" };
-        }
+        // Conservative fallback settings
+        fallbackDecisions.visualEnabled = true;
+        fallbackDecisions.navLineWidth = 0.4f;
+        fallbackDecisions.navLineOpacity = 80f;
+        fallbackDecisions.bboxWidth = 0.1f;
+        fallbackDecisions.bboxOpacity = 60f;
+        fallbackDecisions.bboxRange = 25f;
         
-        fallbackDecisions.mediumPriorityObjects = new List<string> { "Tree", "Bench", "Bus" };
-        fallbackDecisions.lowPriorityObjects = new List<string> { "Building", "Ground" };
+        fallbackDecisions.audioEnabled = true;
+        fallbackDecisions.audioType = "TTS";
+        fallbackDecisions.audioInterval = 2.0f;
+        fallbackDecisions.audioDistance = 5.0f;
         
-        fallbackDecisions.useAudio = true;
-        fallbackDecisions.useHaptics = false;
-        fallbackDecisions.useSpearcons = true;
-        fallbackDecisions.useVisualEnhancements = false;
+        fallbackDecisions.hapticEnabled = false;
         
-        fallbackDecisions.alertDistance = 4.0f;
-        fallbackDecisions.warningDistance = 2.0f;
-        fallbackDecisions.criticalDistance = 1.0f;
-        
-        fallbackDecisions.recommendSlowerSpeed = false;
-        fallbackDecisions.recommendedSpeedMultiplier = 1.0f;
-        
-        assessmentResults.llmDecisions = fallbackDecisions;
+        assessmentResults.enhancementConfiguration = fallbackDecisions;
         assessmentResults.llmReasoning = "Fallback decisions applied due to processing error during conversation.";
     }
     
@@ -998,18 +854,16 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         SaveAssessmentResults();
         
-        // Show final results in UI
         if (conversationUI != null)
         {
             conversationUI.ShowFinalResults(assessmentResults);
         }
         
-        // Notify other systems
         OnAssessmentCompleted?.Invoke(assessmentResults);
         
-        Debug.Log("ðŸŽ‰ Real-time LLM Conversational Assessment completed!");
-        Debug.Log($"ðŸ“Š {assessmentResults.totalQuestions} questions asked over {assessmentResults.conversationDuration:F1} seconds");
-        Debug.Log($"ðŸ’¬ Conversation included {conversationHistory.Count} total messages");
+        Debug.Log("Real-time LLM Conversational Assessment completed!");
+        Debug.Log($"{assessmentResults.totalQuestions} questions asked over {assessmentResults.conversationDuration:F1} seconds");
+        Debug.Log($"Conversation included {conversationHistory.Count} total messages");
     }
     
     void SaveAssessmentResults()
@@ -1024,11 +878,10 @@ public class GeminiConversationalAssessment : MonoBehaviour
             string jsonData = JsonUtility.ToJson(assessmentResults, true);
             File.WriteAllText(jsonPath, jsonData);
             
-            Debug.Log($"ðŸ’¾ Real-time LLM assessment results saved to: {jsonPath}");
+            Debug.Log($"Real-time LLM assessment results saved to: {jsonPath}");
             
-            // Update SessionManager with results
             UserSession session = SessionManager.Instance.GetCurrentSession();
-            session.llmResults = assessmentResults;
+            // Note: You may need to add enhancementResults field to UserSession or adapt this
             SessionManager.Instance.SaveSessionData();
         }
     }
@@ -1070,81 +923,27 @@ public class GeminiConversationalAssessment : MonoBehaviour
         return questionCount;
     }
     
-    public LLMAssessmentResults GetResults()
+    public EnhancementAssessmentResults GetResults()
     {
         return assessmentResults;
     }
-    
-    [ContextMenu("Debug: Show Conversation State")]
-    public void DebugShowConversationState()
-    {
-        Debug.Log($"ðŸ“‹ CONVERSATION STATE:");
-        Debug.Log($"Questions asked: {questionCount}/{maxQuestions}");
-        Debug.Log($"Conversation in progress: {conversationInProgress}");
-        Debug.Log($"Assessment complete: {assessmentComplete}");
-        Debug.Log($"Conversation history: {conversationHistory.Count} messages");
-        Debug.Log($"Navigation session loaded: {currentSession != null}");
-        Debug.Log($"Scene analysis loaded: {sceneAnalysisData != null}");
-        Debug.Log($"Pre-analysis loaded: {!string.IsNullOrEmpty(preAnalysisText)}");
-    }
-    
-    [ContextMenu("Debug: Show Master Context")]
-    public void DebugShowMasterContext()
-    {
-        Debug.Log($"ðŸ§  MASTER CONTEXT ({fullContextPrompt.Length} chars):");
-        Debug.Log(fullContextPrompt.Substring(0, Mathf.Min(500, fullContextPrompt.Length)) + "...");
-    }
-    
-    [ContextMenu("Debug: Force Find Navigation Data")]
-    public void DebugForceFindNavigationData()
-    {
-        string foundTrial = FindNavigationDataFiles();
-        if (!string.IsNullOrEmpty(foundTrial))
-        {
-            Debug.Log($"âœ… Found navigation data: {foundTrial}");
-        }
-        else
-        {
-            Debug.Log("âŒ No navigation data found");
-        }
-    }
-
-    // Add this method to your GeminiConversationalAssessment.cs file
-// Place it at the bottom of the class, right before the closing brace
-
-[ContextMenu("Debug: Check Navigation Data Paths")]
-public void DebugCheckNavigationPaths()
-{
-    Debug.Log("=== NAVIGATION DATA PATH DEBUG ===");
-    
-    if (SessionManager.Instance != null)
-    {
-        string sessionPath = SessionManager.Instance.GetSessionPath();
-        Debug.Log($"Current Session Path: {sessionPath}");
-        
-        // Check each trial folder
-        string[] trials = { "baseline", "short_llm", "short_algorithmic", "long_llm", "long_algorithmic" };
-        foreach (string trial in trials)
-        {
-            string trialPath = SessionManager.Instance.GetTrialDataPath(trial);
-            string navFile = Path.Combine(trialPath, "navigation_data.json");
-            
-            Debug.Log($"{trial}: {(File.Exists(navFile) ? "EXISTS" : "MISSING")} at {navFile}");
-            
-            if (File.Exists(navFile))
-            {
-                FileInfo info = new FileInfo(navFile);
-                Debug.Log($"  Size: {info.Length} bytes, Modified: {info.LastWriteTime}");
-            }
-        }
-        
-        // Check what completed trials are recorded
-        var session = SessionManager.Instance.GetCurrentSession();
-        Debug.Log($"Recorded completed trials: [{string.Join(", ", session.completedTrials)}]");
-    }
-    else
-    {
-        Debug.LogError("SessionManager.Instance is null!");
-    }
 }
+
+/// <summary>
+/// New results structure to avoid conflicts
+/// </summary>
+[System.Serializable]
+public class EnhancementAssessmentResults
+{
+    public bool completed = false;
+    public string conversationDateTime;
+    public float conversationDuration;
+    public int totalQuestions;
+    
+    public List<ChatMessage> conversationLog = new List<ChatMessage>();
+    public List<string> questionsAsked = new List<string>();
+    public Dictionary<string, string> extractedResponses = new Dictionary<string, string>();
+    
+    public EnhancementConfiguration enhancementConfiguration;
+    public string llmReasoning;
 }

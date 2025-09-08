@@ -8,7 +8,7 @@ using System.Linq;
 /// Spatial Haptic Feedback System for Navigation
 /// Provides directional haptic feedback for up to 2 closest objects from different directions
 /// Uses assessment scores to cap intensity ranges
-/// UPDATED: Removed TieredAudioController references - now works independently
+/// UPDATED: Added manual control methods for LLM trials
 /// </summary>
 public class SpatialHapticController : MonoBehaviour
 {
@@ -56,6 +56,10 @@ public class SpatialHapticController : MonoBehaviour
     [SerializeField] private int rightPeripheralScore = 5;
     [SerializeField] private bool assessmentDataLoaded = false;
     
+    [Header("Manual Control Override")]
+    [Tooltip("Use custom manual settings instead of assessment-based")]
+    [SerializeField] private bool useCustomSettings = false;
+    
     [Header("Direction Mapping")]
     [Tooltip("Angle threshold for front detection (degrees from forward)")]
     [Range(15f, 60f)]
@@ -85,6 +89,11 @@ public class SpatialHapticController : MonoBehaviour
     
     // Haptic event mapping
     private Dictionary<DirectionType, string> hapticEventMap;
+    
+    // Manual control dictionaries
+    private Dictionary<string, float> customMinIntensities = new Dictionary<string, float>();
+    private Dictionary<string, float> customMaxIntensities = new Dictionary<string, float>();
+    private Dictionary<string, float> customFeedbackIntervals = new Dictionary<string, float>();
     
     private enum DirectionType
     {
@@ -247,6 +256,24 @@ public class SpatialHapticController : MonoBehaviour
     
     IntensityRange GetIntensityRangeForDirection(DirectionType direction)
     {
+        // If using custom settings, check for event-specific overrides
+        if (useCustomSettings)
+        {
+            string eventName = hapticEventMap.ContainsKey(direction) ? hapticEventMap[direction] : "";
+            
+            if (!string.IsNullOrEmpty(eventName) && 
+                customMinIntensities.ContainsKey(eventName) && 
+                customMaxIntensities.ContainsKey(eventName))
+            {
+                return new IntensityRange 
+                { 
+                    min = customMinIntensities[eventName], 
+                    max = customMaxIntensities[eventName] 
+                };
+            }
+        }
+        
+        // Fall back to original assessment-based logic
         int visionScore = 5; // Default
         
         // Select appropriate vision score based on direction
@@ -479,7 +506,12 @@ public class SpatialHapticController : MonoBehaviour
     
     bool CanProvideHapticNow()
     {
-        return Time.time - lastHapticTime >= minimumHapticGap;
+        float intervalToUse = minimumHapticGap;
+        
+        // If using custom settings, we could check for the most recent event's custom interval
+        // For now, we'll use the global minimumHapticGap
+        
+        return Time.time - lastHapticTime >= intervalToUse;
     }
     
     void ProvideHapticFeedback(ObjectDistance objectDistance)
@@ -496,7 +528,7 @@ public class SpatialHapticController : MonoBehaviour
         
         string eventName = hapticEventMap[direction];
         
-        // Get intensity range based on vision score for this direction
+        // Get intensity range based on vision score for this direction or custom settings
         IntensityRange intensityRange = GetIntensityRangeForDirection(direction);
         
         // Calculate intensity based on distance within the capped range
@@ -539,9 +571,9 @@ public class SpatialHapticController : MonoBehaviour
             }
             else
             {
-                int visionScore = GetVisionScoreForDirection(direction);
+                string settingType = useCustomSettings ? "Custom" : "Assessment";
                 Debug.Log($"Haptic: {objectDistance.detectableObject.className} -> {eventName} " +
-                         $"(score: {visionScore}, range: {intensityRange.min:F1}-{intensityRange.max:F1}, " +
+                         $"({settingType}: {intensityRange.min:F1}-{intensityRange.max:F1}, " +
                          $"final intensity: {finalIntensity:F2}, distance: {distance:F1}m)");
             }
         }
@@ -627,6 +659,69 @@ public class SpatialHapticController : MonoBehaviour
         return distance;
     }
     
+    // MANUAL CONTROL METHODS
+    
+    /// <summary>
+    /// Set custom intensity range for a specific haptic event
+    /// </summary>
+    public void SetEventIntensityRange(string eventName, float minIntensity, float maxIntensity)
+    {
+        customMinIntensities[eventName] = Mathf.Clamp01(minIntensity);
+        customMaxIntensities[eventName] = Mathf.Clamp01(maxIntensity);
+        useCustomSettings = true;
+        
+        if (enableDebugLogs)
+        {
+            Debug.Log($"Set custom intensity for {eventName}: {minIntensity:F2} - {maxIntensity:F2}");
+        }
+    }
+    
+    /// <summary>
+    /// Set custom feedback interval for a specific haptic event
+    /// </summary>
+    public void SetEventFeedbackInterval(string eventName, float interval)
+    {
+        customFeedbackIntervals[eventName] = Mathf.Clamp(interval, 0.5f, 5f);
+        useCustomSettings = true;
+        
+        if (enableDebugLogs)
+        {
+            Debug.Log($"Set custom interval for {eventName}: {interval:F1}s");
+        }
+    }
+    
+    /// <summary>
+    /// Enable custom manual settings mode
+    /// </summary>
+    public void EnableCustomSettings()
+    {
+        useCustomSettings = true;
+        Debug.Log("SpatialHapticController: Custom settings enabled");
+    }
+    
+    /// <summary>
+    /// Disable custom settings and revert to assessment-based
+    /// </summary>
+    public void DisableCustomSettings()
+    {
+        useCustomSettings = false;
+        customMinIntensities.Clear();
+        customMaxIntensities.Clear();
+        customFeedbackIntervals.Clear();
+        Debug.Log("SpatialHapticController: Custom settings disabled - reverted to assessment-based");
+    }
+    
+    /// <summary>
+    /// Clear all custom settings for a fresh start
+    /// </summary>
+    public void ClearCustomSettings()
+    {
+        customMinIntensities.Clear();
+        customMaxIntensities.Clear();
+        customFeedbackIntervals.Clear();
+        Debug.Log("SpatialHapticController: All custom settings cleared");
+    }
+    
     // PUBLIC CONTROL METHODS
     
     public void EnableHaptic()
@@ -638,16 +733,6 @@ public class SpatialHapticController : MonoBehaviour
         {
             Debug.Log("Spatial haptic feedback enabled");
         }
-    }
-
-    public void SetEventIntensityRange(string eventName, float minIntensity, float maxIntensity)
-    {
-        // Store per-event intensity ranges in a dictionary
-    }
-
-    public void SetEventFeedbackInterval(string eventName, float interval)
-    {
-        // Store per-event intervals in a dictionary
     }
         
     public void DisableHaptic()
@@ -688,6 +773,19 @@ public class SpatialHapticController : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// Set the maximum number of haptic objects to provide feedback for
+    /// </summary>
+    public void SetMaxHapticObjects(int maxObjects)
+    {
+        maxHapticObjects = Mathf.Clamp(maxObjects, 1, 3);
+        
+        if (enableDebugLogs)
+        {
+            Debug.Log($"Max haptic objects set to: {maxHapticObjects}");
+        }
+    }
+    
     public void SetFeedbackInterval(float interval)
     {
         feedbackInterval = Mathf.Clamp(interval, 0.5f, 5f);
@@ -707,6 +805,7 @@ public class SpatialHapticController : MonoBehaviour
     // STATUS METHODS
     
     public bool IsHapticEnabled() => hapticEnabled;
+    public bool IsUsingCustomSettings() => useCustomSettings;
     public List<DetectableObject> GetCurrentHapticObjects() => new List<DetectableObject>(currentHapticObjects);
     public List<float> GetCurrentHapticDistances() => new List<float>(currentHapticDistances);
     public List<string> GetCurrentDirections() => new List<string>(currentDirections);
@@ -798,6 +897,7 @@ public class SpatialHapticController : MonoBehaviour
         Debug.Log("=== SPATIAL HAPTIC CONTROLLER STATUS ===");
         Debug.Log($"System Active: {systemActive}");
         Debug.Log($"Haptic Enabled: {hapticEnabled}");
+        Debug.Log($"Using Custom Settings: {useCustomSettings}");
         Debug.Log($"Current Trial: {GetCurrentTrial()}");
         Debug.Log($"Should Enable for Trial: {ShouldEnableHapticsForCurrentTrial()}");
         Debug.Log($"Base Intensity: {baseIntensity:F2}");
@@ -815,6 +915,18 @@ public class SpatialHapticController : MonoBehaviour
         }
         
         Debug.Log($"Total Nearby Objects: {totalNearbyObjects}");
+        
+        if (useCustomSettings)
+        {
+            Debug.Log($"Custom Intensity Settings: {customMinIntensities.Count}");
+            foreach (var kvp in customMinIntensities)
+            {
+                if (customMaxIntensities.ContainsKey(kvp.Key))
+                {
+                    Debug.Log($"  {kvp.Key}: {kvp.Value:F2} - {customMaxIntensities[kvp.Key]:F2}");
+                }
+            }
+        }
     }
     
     [ContextMenu("Test: Stop All Haptics")]
@@ -822,6 +934,26 @@ public class SpatialHapticController : MonoBehaviour
     {
         BhapticsLibrary.StopAll();
         Debug.Log("Stopped all haptic feedback");
+    }
+    
+    [ContextMenu("Test: Enable Custom Settings")]
+    public void TestEnableCustomSettings()
+    {
+        EnableCustomSettings();
+        
+        // Set some test custom values
+        SetEventIntensityRange("centre_100", 0.5f, 0.8f);
+        SetEventIntensityRange("left_100", 0.3f, 0.6f);
+        SetEventIntensityRange("right_100", 0.3f, 0.6f);
+        
+        Debug.Log("Test: Enabled custom settings with sample values");
+    }
+    
+    [ContextMenu("Test: Disable Custom Settings")]
+    public void TestDisableCustomSettings()
+    {
+        DisableCustomSettings();
+        Debug.Log("Test: Disabled custom settings - reverted to assessment-based");
     }
     
     void Update()

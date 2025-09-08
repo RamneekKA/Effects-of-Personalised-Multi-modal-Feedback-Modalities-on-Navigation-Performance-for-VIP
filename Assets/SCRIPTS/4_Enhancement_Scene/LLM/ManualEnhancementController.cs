@@ -33,9 +33,9 @@ public class ManualEnhancementController : MonoBehaviour
     [Tooltip("Enable manual control of navigation line")]
     public bool enableNavigationLineControl = true;
     
-    [Range(0.1f, 2.0f)]
+    [Range(0.2f, 0.6f)]
     [Tooltip("Width of the navigation line")]
-    public float navigationLineWidth = 0.5f;
+    public float navigationLineWidth = 0.2f;
     
     [Range(0f, 1f)]
     [Tooltip("Opacity of the navigation line (0=transparent, 1=opaque)")]
@@ -48,9 +48,9 @@ public class ManualEnhancementController : MonoBehaviour
     [Tooltip("Enable manual control of bounding boxes")]
     public bool enableBoundingBoxControl = true;
     
-    [Range(0.02f, 0.3f)]
+    [Range(0.02f, 0.20f)]
     [Tooltip("Width of the bounding box lines")]
-    public float boundingBoxLineWidth = 0.1f;
+    public float boundingBoxLineWidth = 0.20f;
     
     [Range(0f, 1f)]
     [Tooltip("Opacity of the bounding boxes (0=transparent, 1=opaque)")]
@@ -59,7 +59,7 @@ public class ManualEnhancementController : MonoBehaviour
     [Tooltip("Color of the bounding boxes")]
     public Color boundingBoxColor = Color.green;
     
-    [Range(0.5f, 50f)]
+    [Range(5.0f, 50f)]
     [Tooltip("Range to show bounding boxes around objects")]
     public float boundingBoxRange = 15f;
     
@@ -109,17 +109,36 @@ public class ManualEnhancementController : MonoBehaviour
     [Tooltip("Detection range for haptic feedback")]
     public float hapticDetectionRange = 25f;
     
-    [Header("Haptic Event Configurations")]
-    [Tooltip("Configure intensity ranges and intervals for each haptic event")]
-    public HapticEventConfig[] hapticEvents = new HapticEventConfig[]
-    {
-        new HapticEventConfig { eventName = "centre_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
-        new HapticEventConfig { eventName = "left_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
-        new HapticEventConfig { eventName = "right_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
-        new HapticEventConfig { eventName = "left_back_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
-        new HapticEventConfig { eventName = "right_back_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
-        new HapticEventConfig { eventName = "centre_leftback_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f },
-        new HapticEventConfig { eventName = "centre_rightback_100", minIntensity = 0.3f, maxIntensity = 1.0f, feedbackInterval = 1.5f }
+    [Range(1, 3)]
+    [Tooltip("Maximum number of objects to provide haptic feedback for simultaneously")]
+    public int maxHapticObjects = 2;
+    
+    [Header("Grouped Haptic Event Configurations")]
+    [Tooltip("Configure settings for central direction events (centre, centre_leftback, centre_rightback)")]
+    public HapticGroupConfig centralGroup = new HapticGroupConfig 
+    { 
+        groupName = "Central",
+        minIntensity = 0.3f, 
+        maxIntensity = 1.0f, 
+        feedbackInterval = 1.5f 
+    };
+    
+    [Tooltip("Configure settings for left direction events (left, left_back)")]
+    public HapticGroupConfig leftGroup = new HapticGroupConfig 
+    { 
+        groupName = "Left",
+        minIntensity = 0.3f, 
+        maxIntensity = 1.0f, 
+        feedbackInterval = 1.5f 
+    };
+    
+    [Tooltip("Configure settings for right direction events (right, right_back)")]
+    public HapticGroupConfig rightGroup = new HapticGroupConfig 
+    { 
+        groupName = "Right",
+        minIntensity = 0.3f, 
+        maxIntensity = 1.0f, 
+        feedbackInterval = 1.5f 
     };
     
     [Header("=== CURRENT STATUS ===")]
@@ -136,9 +155,9 @@ public class ManualEnhancementController : MonoBehaviour
     }
     
     [System.Serializable]
-    public class HapticEventConfig
+    public class HapticGroupConfig
     {
-        public string eventName;
+        public string groupName;
         [Range(0f, 1f)] public float minIntensity = 0.1f;
         [Range(0f, 1f)] public float maxIntensity = 1.0f;
         [Range(0.5f, 5f)] public float feedbackInterval = 1.5f;
@@ -381,8 +400,12 @@ public class ManualEnhancementController : MonoBehaviour
         
         if (enableHapticFeedback)
         {
+            // Enable custom settings mode
+            spatialHapticController.EnableCustomSettings();
+            
             // Apply global haptic settings
             spatialHapticController.SetDetectionRange(hapticDetectionRange);
+            spatialHapticController.SetMaxHapticObjects(maxHapticObjects);
             
             // Apply individual haptic event settings
             ApplyHapticEventSettings();
@@ -390,7 +413,7 @@ public class ManualEnhancementController : MonoBehaviour
             // Enable the haptic system
             spatialHapticController.EnableHaptic();
             
-            Debug.Log($"Haptic System: enabled, range={hapticDetectionRange}m, {hapticEvents.Length} events configured");
+            Debug.Log($"Haptic System: enabled with custom settings, range={hapticDetectionRange}m, max objects={maxHapticObjects}");
         }
         else
         {
@@ -401,17 +424,32 @@ public class ManualEnhancementController : MonoBehaviour
     
     void ApplyHapticEventSettings()
     {
-        // Note: You'll need to add public methods to SpatialHapticController to set these
-        // For now, we'll log what should be applied
-        
         Debug.Log("Haptic Event Settings:");
-        foreach (HapticEventConfig config in hapticEvents)
+        
+        // Central group: centre_100, centre_leftback_100, centre_rightback_100
+        string[] centralEvents = { "centre_100", "centre_leftback_100", "centre_rightback_100" };
+        ApplyGroupSettings(centralEvents, centralGroup);
+        
+        // Left group: left_100, left_back_100
+        string[] leftEvents = { "left_100", "left_back_100" };
+        ApplyGroupSettings(leftEvents, leftGroup);
+        
+        // Right group: right_100, right_back_100
+        string[] rightEvents = { "right_100", "right_back_100" };
+        ApplyGroupSettings(rightEvents, rightGroup);
+    }
+    
+    void ApplyGroupSettings(string[] eventNames, HapticGroupConfig groupConfig)
+    {
+        Debug.Log($"  {groupConfig.groupName} Group: min={groupConfig.minIntensity:F2}, max={groupConfig.maxIntensity:F2}, interval={groupConfig.feedbackInterval:F1}s");
+        
+        foreach (string eventName in eventNames)
         {
-            Debug.Log($"  {config.eventName}: min={config.minIntensity:F2}, max={config.maxIntensity:F2}, interval={config.feedbackInterval:F1}s");
+            Debug.Log($"    -> {eventName}");
             
-            // You'll need to add these methods to SpatialHapticController:
-            // spatialHapticController.SetEventIntensityRange(config.eventName, config.minIntensity, config.maxIntensity);
-            // spatialHapticController.SetEventFeedbackInterval(config.eventName, config.feedbackInterval);
+            // Now these methods exist and will work:
+            spatialHapticController.SetEventIntensityRange(eventName, groupConfig.minIntensity, groupConfig.maxIntensity);
+            spatialHapticController.SetEventFeedbackInterval(eventName, groupConfig.feedbackInterval);
         }
     }
     
@@ -458,6 +496,7 @@ public class ManualEnhancementController : MonoBehaviour
         if (manualControlActive && Application.isPlaying)
         {
             UpdateVisualSettings();
+            UpdateHapticSettings();
         }
     }
     
@@ -482,6 +521,16 @@ public class ManualEnhancementController : MonoBehaviour
             
             Color colorWithOpacity = new Color(boundingBoxColor.r, boundingBoxColor.g, boundingBoxColor.b, boundingBoxOpacity);
             dynamicObjectManager.boundingBoxColor = colorWithOpacity;
+        }
+    }
+    
+    void UpdateHapticSettings()
+    {
+        // Update haptic settings in real-time if manual control is active
+        if (enableHapticFeedback && spatialHapticController != null && spatialHapticController.IsUsingCustomSettings())
+        {
+            spatialHapticController.SetDetectionRange(hapticDetectionRange);
+            spatialHapticController.SetMaxHapticObjects(maxHapticObjects);
         }
     }
     
@@ -575,11 +624,10 @@ public class ManualEnhancementController : MonoBehaviour
         if (enableHapticFeedback)
         {
             Debug.Log($"  Detection Range: {hapticDetectionRange}m");
-            Debug.Log($"  Configured Events: {hapticEvents.Length}");
-            foreach (HapticEventConfig config in hapticEvents)
-            {
-                Debug.Log($"    {config.eventName}: min={config.minIntensity:F2}, max={config.maxIntensity:F2}, interval={config.feedbackInterval:F1}s");
-            }
+            Debug.Log($"  Max Haptic Objects: {maxHapticObjects}");
+            Debug.Log($"  Central Group: min={centralGroup.minIntensity:F2}, max={centralGroup.maxIntensity:F2}, interval={centralGroup.feedbackInterval:F1}s");
+            Debug.Log($"  Left Group: min={leftGroup.minIntensity:F2}, max={leftGroup.maxIntensity:F2}, interval={leftGroup.feedbackInterval:F1}s");
+            Debug.Log($"  Right Group: min={rightGroup.minIntensity:F2}, max={rightGroup.maxIntensity:F2}, interval={rightGroup.feedbackInterval:F1}s");
         }
     }
     

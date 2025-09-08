@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Scene controller for the LLM Conversational Assessment scene
-/// Updated for manual trial control (no auto-advance)
+/// Updated to work with new EnhancementAssessmentResults data structure
 /// </summary>
 public class LLMAssessmentSceneController : MonoBehaviour
 {
@@ -59,7 +59,7 @@ public class LLMAssessmentSceneController : MonoBehaviour
             return;
         }
         
-        // Subscribe to assessment completion
+        // Subscribe to assessment completion - UPDATED to use new event type
         GeminiConversationalAssessment.OnAssessmentCompleted += OnAssessmentCompleted;
         
         Debug.Log("LLM Assessment Scene initialized successfully");
@@ -80,10 +80,21 @@ public class LLMAssessmentSceneController : MonoBehaviour
         // through its Start() method
     }
     
-    void OnAssessmentCompleted(LLMAssessmentResults results)
+    // UPDATED: Changed parameter type from LLMAssessmentResults to EnhancementAssessmentResults
+    void OnAssessmentCompleted(EnhancementAssessmentResults results)
     {
         Debug.Log("LLM Assessment completed successfully!");
         Debug.Log($"Results: {results.totalQuestions} questions, {results.conversationDuration:F1}s duration");
+        
+        // Log enhancement configuration details
+        if (results.enhancementConfiguration != null)
+        {
+            var config = results.enhancementConfiguration;
+            Debug.Log($"Enhancement Configuration:");
+            Debug.Log($"  Visual: {config.visualEnabled}");
+            Debug.Log($"  Audio: {config.audioEnabled} ({config.audioType})");
+            Debug.Log($"  Haptic: {config.hapticEnabled}");
+        }
         
         // Mark the LLM trial as completed
         if (SessionManager.Instance != null)
@@ -235,11 +246,18 @@ public class LLMAssessmentSceneController : MonoBehaviour
     [ContextMenu("Debug: Test Completion Flow")]
     public void DebugTestCompletionFlow()
     {
-        // Create mock results and trigger completion
-        LLMAssessmentResults mockResults = new LLMAssessmentResults();
+        // Create mock results with new data structure and trigger completion
+        EnhancementAssessmentResults mockResults = new EnhancementAssessmentResults();
         mockResults.totalQuestions = 8;
         mockResults.conversationDuration = 120f;
         mockResults.completed = true;
+        
+        // Create mock enhancement configuration
+        mockResults.enhancementConfiguration = new EnhancementConfiguration();
+        mockResults.enhancementConfiguration.visualEnabled = true;
+        mockResults.enhancementConfiguration.audioEnabled = true;
+        mockResults.enhancementConfiguration.audioType = "TTS";
+        mockResults.enhancementConfiguration.hapticEnabled = false;
         
         OnAssessmentCompleted(mockResults);
     }
@@ -252,7 +270,7 @@ public class LLMAssessmentSceneController : MonoBehaviour
     
     void OnDestroy()
     {
-        // Clean up event subscriptions
+        // Clean up event subscriptions - UPDATED to use new event type
         GeminiConversationalAssessment.OnAssessmentCompleted -= OnAssessmentCompleted;
     }
     

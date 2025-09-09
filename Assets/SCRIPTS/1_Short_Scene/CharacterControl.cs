@@ -9,7 +9,8 @@ namespace FCG
 {
     /// <summary>
     /// Updated Character Controller with Unified Audio System Integration
-    /// Now uses single UnifiedAudioController instead of separate TieredAudioController
+    /// CLEANED: Removed old AppliedEnhancements system
+    /// Now uses specialized controllers: UnifiedAudioController, SpatialHapticController, UnifiedEnhancementController
     /// </summary>
     public class CharacterControl : MonoBehaviour
     {
@@ -39,9 +40,6 @@ namespace FCG
         public bool waitForPreAnalysis = true;
         private bool preAnalysisCompleted = false;
         private GeminiScenePreAnalyzer geminiPreAnalyzer;
-        
-        [Header("Enhancement System")]
-        public AppliedEnhancements currentEnhancements;
         
         [Header("Unified Audio Integration")]
         [Tooltip("Reference to the unified audio controller")]
@@ -373,9 +371,6 @@ namespace FCG
             
             // Configure route based on trial
             ConfigureRoute(trialType);
-            
-            // Apply enhancements if this is an enhanced trial
-            ApplyTrialEnhancements(trialType);
 
             // Configure default navigation line settings for baseline trial
             if (trialType == "baseline" && routeGuideSystem != null)
@@ -405,61 +400,6 @@ namespace FCG
                 case "none":
                     Debug.Log("No route configuration needed for assessment trial");
                     break;
-            }
-        }
-
-        void ApplyTrialEnhancements(string trialType)
-        {
-            // Reset enhancements
-            currentEnhancements = new AppliedEnhancements();
-            
-            // Load enhancements based on trial type
-            switch (trialType)
-            {
-                case "short_llm":
-                case "long_llm":
-                    LoadLLMEnhancements();
-                    break;
-                case "short_algorithmic":
-                case "long_algorithmic":
-                    LoadAlgorithmicEnhancements();
-                    break;
-                default:
-                    // Baseline or assessment trials - no enhancements
-                    break;
-            }
-            
-            if (currentEnhancements.sourceAssessment != null)
-            {
-                Debug.Log($"Applied {currentEnhancements.sourceAssessment} enhancements for {trialType}");
-            }
-        }
-
-        void LoadLLMEnhancements()
-        {
-            if (currentSession?.llmResults?.llmDecisions != null)
-            {
-                currentEnhancements = currentSession.llmResults.llmDecisions;
-                Debug.Log("Loaded LLM enhancements from session data");
-            }
-            else
-            {
-                Debug.LogWarning("No LLM enhancements found - using defaults");
-                currentEnhancements.sourceAssessment = "llm";
-            }
-        }
-
-        void LoadAlgorithmicEnhancements()
-        {
-            if (currentSession?.algorithmicResults?.algorithmicDecisions != null)
-            {
-                currentEnhancements = currentSession.algorithmicResults.algorithmicDecisions;
-                Debug.Log("Loaded algorithmic enhancements from session data");
-            }
-            else
-            {
-                Debug.LogWarning("No algorithmic enhancements found - using defaults");
-                currentEnhancements.sourceAssessment = "algorithmic";
             }
         }
 
@@ -615,7 +555,7 @@ namespace FCG
             Debug.Log($"Screenshot saved: {filename}");
         }
 
-        // Enhanced collision detection with current enhancements
+        // Enhanced collision detection
         void OnControllerColliderHit(ControllerColliderHit hit)
         {
             if (!enableTracking || !navigationEnabled) return;
@@ -664,37 +604,6 @@ namespace FCG
             }
             
             LogBodyPartCollision(bodyPart, objectType, objectDisplayName, hit.point);
-            
-            // Apply enhancement feedback if enabled
-            ApplyCollisionFeedback(objectType, hit.point);
-        }
-
-        void ApplyCollisionFeedback(string objectType, Vector3 collisionPoint)
-        {
-            if (currentEnhancements.sourceAssessment == null) return;
-
-            // Check if this object type is high priority
-            bool isHighPriority = currentEnhancements.highPriorityObjects.Contains(objectType);
-            bool isMediumPriority = currentEnhancements.mediumPriorityObjects.Contains(objectType);
-
-            if (isHighPriority || isMediumPriority)
-            {
-                // Apply feedback based on enabled modalities
-                if (currentEnhancements.useAudio)
-                {
-                    Debug.Log($"Audio feedback: Collision with {objectType}");
-                }
-                
-                if (currentEnhancements.useHaptics)
-                {
-                    Debug.Log($"Haptic feedback: Collision with {objectType}");
-                }
-                
-                if (currentEnhancements.useSpearcons)
-                {
-                    Debug.Log($"Spearcon feedback: {objectType}");
-                }
-            }
         }
 
         IEnumerator RemoveCollisionAfterDelay(string collisionID, float delay)
@@ -833,8 +742,7 @@ namespace FCG
                 minimumDeviation = minimumDeviation,
                 timeSpentOffRoute = timeOffRoute,
                 routeCompletionPercentage = 100f,
-                averageSpeed = averageSpeed,
-                appliedEnhancements = currentEnhancements
+                averageSpeed = averageSpeed
             };
 
             string json = JsonUtility.ToJson(session, true);
@@ -867,7 +775,6 @@ namespace FCG
                     if (userSession.shortLLMResults == null)
                         userSession.shortLLMResults = new EnhancedNavigationResults();
                     userSession.shortLLMResults.navigationSession = session;
-                    userSession.shortLLMResults.enhancementsUsed = currentEnhancements;
                     userSession.shortLLMResults.completed = true;
                     break;
                     
@@ -875,7 +782,6 @@ namespace FCG
                     if (userSession.shortAlgorithmicResults == null)
                         userSession.shortAlgorithmicResults = new EnhancedNavigationResults();
                     userSession.shortAlgorithmicResults.navigationSession = session;
-                    userSession.shortAlgorithmicResults.enhancementsUsed = currentEnhancements;
                     userSession.shortAlgorithmicResults.completed = true;
                     break;
                     
@@ -883,7 +789,6 @@ namespace FCG
                     if (userSession.longLLMResults == null)
                         userSession.longLLMResults = new EnhancedNavigationResults();
                     userSession.longLLMResults.navigationSession = session;
-                    userSession.longLLMResults.enhancementsUsed = currentEnhancements;
                     userSession.longLLMResults.completed = true;
                     break;
                     
@@ -891,7 +796,6 @@ namespace FCG
                     if (userSession.longAlgorithmicResults == null)
                         userSession.longAlgorithmicResults = new EnhancedNavigationResults();
                     userSession.longAlgorithmicResults.navigationSession = session;
-                    userSession.longAlgorithmicResults.enhancementsUsed = currentEnhancements;
                     userSession.longAlgorithmicResults.completed = true;
                     break;
             }
@@ -1159,12 +1063,6 @@ namespace FCG
             moveDirection = Vector3.ClampMagnitude(moveDirection, 1.0f);
 
             float finalSpeed = Input.GetKey(KeyCode.LeftShift) ? speed * 1.2f : speed;
-            
-            // Apply speed modifications from enhancements
-            if (currentEnhancements.recommendSlowerSpeed)
-            {
-                finalSpeed *= currentEnhancements.recommendedSpeedMultiplier;
-            }
             
             charController.SimpleMove(moveDirection * finalSpeed);
 #endif

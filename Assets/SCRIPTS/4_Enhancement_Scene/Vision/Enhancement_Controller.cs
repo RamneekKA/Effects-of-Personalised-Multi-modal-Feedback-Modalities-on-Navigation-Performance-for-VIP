@@ -5,10 +5,10 @@ using System.IO;
 using System.Linq;
 
 /// <summary>
-/// Unified Enhancement Controller - Single point of control for all visual enhancements
-/// Replaces: AlgorithmicEnhancementIntegrator, BoundingBoxEnhancementController, NavigationLineEnhancementController
-/// Handles both bounding boxes and navigation line enhancements in one clean system
-/// UPDATED: Only applies enhancements to short_algorithmic and long_algorithmic trials
+/// Unified Enhancement Controller - Single point of control for visual enhancements
+/// CLEANED: Removed old AppliedEnhancements system references
+/// Handles both bounding boxes and navigation line enhancements
+/// Only applies enhancements to short_algorithmic and long_algorithmic trials
 /// </summary>
 public class UnifiedEnhancementController : MonoBehaviour
 {
@@ -41,7 +41,6 @@ public class UnifiedEnhancementController : MonoBehaviour
     [SerializeField] private bool loadedFromFile = false;
     
     // Internal state
-    private FCG.CharacterControl characterControl;
     private bool systemInitialized = false;
     
     void Start()
@@ -54,13 +53,6 @@ public class UnifiedEnhancementController : MonoBehaviour
     
     void InitializeSystem()
     {
-        // Get CharacterControl reference
-        characterControl = GetComponent<FCG.CharacterControl>();
-        if (characterControl == null)
-        {
-            characterControl = FindObjectOfType<FCG.CharacterControl>();
-        }
-        
         // Auto-find system references if not assigned
         if (routeGuideSystem == null)
             routeGuideSystem = FindObjectOfType<RouteGuideSystem>();
@@ -145,9 +137,6 @@ public class UnifiedEnhancementController : MonoBehaviour
         ApplyEnhancements(currentEnhancementSettings);
         
         Debug.Log("UnifiedEnhancementController: Algorithmic enhancements successfully applied");
-        
-        // Update CharacterControl with enhancement info
-        UpdateCharacterControlEnhancements();
     }
     
     bool ValidateSystemReferences()
@@ -316,31 +305,8 @@ public class UnifiedEnhancementController : MonoBehaviour
         Debug.Log($"UnifiedEnhancementController: Enhancement decision - {settings.decisionReason}");
     }
     
-    void UpdateCharacterControlEnhancements()
-    {
-        if (characterControl == null || currentEnhancementSettings == null) return;
-        
-        AppliedEnhancements appliedEnhancements = characterControl.currentEnhancements;
-        if (appliedEnhancements == null)
-        {
-            appliedEnhancements = new AppliedEnhancements();
-            characterControl.currentEnhancements = appliedEnhancements;
-        }
-        
-        appliedEnhancements.sourceAssessment = "algorithmic";
-        appliedEnhancements.useVisualEnhancements = currentEnhancementSettings.enableBoundingBoxes || 
-                                                   currentEnhancementSettings.enhanceNavigationLine;
-        appliedEnhancements.reasoning = currentEnhancementSettings.decisionReason;
-        
-        if (loadedFromFile)
-        {
-            appliedEnhancements.reasoning += " (Assessment data loaded from file)";
-        }
-        
-        Debug.Log("UnifiedEnhancementController: Updated CharacterControl enhancement info");
-    }
+    // PUBLIC API METHODS - Runtime control
     
-    // Public API methods for runtime control
     public void SetNavigationLineWidth(float width)
     {
         if (currentEnhancementSettings != null && routeGuideSystem != null && enhancementsActive)
@@ -566,38 +532,6 @@ public class UnifiedEnhancementController : MonoBehaviour
         var settings = GenerateEnhancementSettings(7, mockBaseline);
         LogEnhancementDetails(settings, "CV=7, Static Object Collisions");
         ApplyEnhancements(settings);
-    }
-    
-    [ContextMenu("Debug: Test All Scenarios")]
-    public void DebugTestAllScenarios()
-    {
-        Debug.Log("=== TESTING ALL DEBUG SCENARIOS ===");
-        
-        // Test each scenario with a delay
-        StartCoroutine(RunAllScenariosWithDelay());
-    }
-    
-    IEnumerator RunAllScenariosWithDelay()
-    {
-        DebugScenario1_CV3_NoCollisions();
-        yield return new WaitForSeconds(2f);
-        
-        DebugScenario2_CV5_NoCollisions();
-        yield return new WaitForSeconds(2f);
-        
-        DebugScenario3_CV7_NoCollisions();
-        yield return new WaitForSeconds(2f);
-        
-        DebugScenario4_CV10_NoCollisions();
-        yield return new WaitForSeconds(2f);
-        
-        DebugScenario5_CV7_DynamicCollisions();
-        yield return new WaitForSeconds(2f);
-        
-        DebugScenario6_CV7_StaticCollisions();
-        yield return new WaitForSeconds(2f);
-        
-        Debug.Log("=== ALL SCENARIOS TESTING COMPLETE ===");
     }
     
     NavigationSession CreateMockBaselineSession(int totalCollisions, bool hasDynamicCollisions = false, bool hasStaticCollisions = false)

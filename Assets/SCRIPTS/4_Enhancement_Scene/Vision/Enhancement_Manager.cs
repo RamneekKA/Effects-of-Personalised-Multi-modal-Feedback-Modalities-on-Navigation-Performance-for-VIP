@@ -2,6 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Simplified Visual Enhancement Manager - Compatibility layer only
+/// CLEANED: Removed old AppliedEnhancements system references
 /// The actual enhancement application is now handled by UnifiedEnhancementController
 /// This script maintains compatibility with existing systems that expect VisualEnhancementManager
 /// </summary>

@@ -290,29 +290,6 @@ MonoBehaviour:
     assessmentDuration: 0
     assessmentDateTime: 
     completed: 0
-    algorithmicDecisions:
-      sourceAssessment: 
-      reasoning: 
-      highPriorityObjects: []
-      mediumPriorityObjects: []
-      lowPriorityObjects: []
-      useAudio: 1
-      useHaptics: 0
-      useSpearcons: 0
-      useVisualEnhancements: 0
-      alertDistance: 4
-      warningDistance: 2
-      criticalDistance: 1
-      leftSideMultiplier: 1
-      rightSideMultiplier: 1
-      frontMultiplier: 1
-      recommendSlowerSpeed: 0
-      recommendedSpeedMultiplier: 1
-    canSee2Meters: 0
-    canSee4Meters: 0
-    canSee8Meters: 0
-    lightSensitive: 0
-    lowLightDifficulty: 0
 --- !u!4 &973986014
 Transform:
   m_ObjectHideFlags: 0

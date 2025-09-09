@@ -3,7 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Updated data structures for the full 5-trial pipeline
-/// UPDATED: Modified AlgorithmicAssessmentResults to support new question format
+/// CLEANED: Removed old AppliedEnhancements system
+/// Now uses specialized controllers for enhancements
 /// </summary>
 
 [System.Serializable]
@@ -98,9 +99,6 @@ public class NavigationSession
     public float timeSpentOffRoute = 0f;
     public float routeCompletionPercentage = 0f;
     public float averageSpeed = 0f;
-    
-    [Header("Enhancement Applied")]
-    public AppliedEnhancements appliedEnhancements;
 }
 
 [System.Serializable]
@@ -120,18 +118,15 @@ public class AlgorithmicAssessmentResults
     public int leftPeripheralRating;
     public int rightPeripheralRating;
     
-    //[Header("Distance Vision")]
-    //public float maxVisibleDistance; // Original field - keep for backward compatibility
-    
-    [Header("New Distance Questions")]
-    public float objectClarityDistance; // NEW: Distance where objects become unclear (1-10m)
-    public float reliableAvoidanceDistance; // NEW: Distance needed for reliable avoidance (0.5-5m)
+    [Header("Distance Questions")]
+    public float objectClarityDistance; // Distance where objects become unclear (1-10m)
+    public float reliableAvoidanceDistance; // Distance needed for reliable avoidance (0.5-5m)
     
     [Header("Color & Light")]
     public bool isColorBlind;
     public List<string> colorBlindnessTypes = new List<string>();
-    public int lightSensitivityRating; // 1-10 scale instead of boolean
-    public int lowLightDifficultyRating; // 1-10 scale instead of boolean
+    public int lightSensitivityRating; // 1-10 scale
+    public int lowLightDifficultyRating; // 1-10 scale
     
     [Header("Output Modality Preference")]
     public string preferredModalityType; // "Audio", "Haptics", or "Visual"
@@ -140,21 +135,6 @@ public class AlgorithmicAssessmentResults
     public float assessmentDuration;
     public string assessmentDateTime;
     public bool completed = false;
-    
-    [Header("Generated Decisions")]
-    public AppliedEnhancements algorithmicDecisions;
-    
-    // DEPRECATED FIELDS (kept for backward compatibility)
-    [System.Obsolete("Use maxVisibleDistance instead")]
-    public bool canSee2Meters;
-    [System.Obsolete("Use maxVisibleDistance instead")]
-    public bool canSee4Meters;
-    [System.Obsolete("Use maxVisibleDistance instead")]
-    public bool canSee8Meters;
-    [System.Obsolete("Use lightSensitivityRating instead")]
-    public bool lightSensitive;
-    [System.Obsolete("Use lowLightDifficultyRating instead")]
-    public bool lowLightDifficulty;
 }
 
 [System.Serializable]
@@ -171,9 +151,9 @@ public class LLMAssessmentResults
     public int totalQuestions;
     public bool completed = false;
     
-    [Header("Generated Decisions")]
-    public AppliedEnhancements llmDecisions;
-    public string llmReasoning;
+    [Header("Enhancement Notes")]
+    public string enhancementNotes; // Notes about what enhancements were configured manually
+    public string llmReasoning; // LLM's reasoning for enhancement decisions
 }
 
 [System.Serializable]
@@ -189,42 +169,12 @@ public class ChatMessage
 public class EnhancedNavigationResults
 {
     public NavigationSession navigationSession;
-    public AppliedEnhancements enhancementsUsed;
     public PerformanceComparison comparisonToBaseline;
     public bool completed = false;
-}
-
-[System.Serializable]
-public class AppliedEnhancements
-{
-    [Header("Source")]
-    public string sourceAssessment; // "llm" or "algorithmic"
-    public string reasoning;
     
-    [Header("Object Prioritization")]
-    public List<string> highPriorityObjects = new List<string>();
-    public List<string> mediumPriorityObjects = new List<string>();
-    public List<string> lowPriorityObjects = new List<string>();
-    
-    [Header("Modality Selection")]
-    public bool useAudio = true;
-    public bool useHaptics = false;
-    public bool useSpearcons = false;
-    public bool useVisualEnhancements = false;
-    
-    [Header("Distance Thresholds")]
-    public float alertDistance = 4.0f;
-    public float warningDistance = 2.0f;
-    public float criticalDistance = 1.0f;
-    
-    [Header("Directional Preferences")]
-    public float leftSideMultiplier = 1.0f;  // Increase alert sensitivity for left side
-    public float rightSideMultiplier = 1.0f; // Increase alert sensitivity for right side
-    public float frontMultiplier = 1.0f;     // Increase alert sensitivity for front
-    
-    [Header("Speed Adjustments")]
-    public bool recommendSlowerSpeed = false;
-    public float recommendedSpeedMultiplier = 1.0f;
+    [Header("Enhancement Information")]
+    public string enhancementType; // "algorithmic" or "llm"
+    public string enhancementSummary; // Brief description of what enhancements were applied
 }
 
 [System.Serializable]

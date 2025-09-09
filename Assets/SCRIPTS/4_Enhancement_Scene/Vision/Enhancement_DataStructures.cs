@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Data structures for the enhancement system
 /// Contains all the classes needed by UnifiedEnhancementController and SimplifiedVisualEnhancementManager
+/// UPDATED: Added complete enhancement settings for JSON logging
 /// </summary>
 
 /// <summary>
@@ -33,6 +34,86 @@ public class VisualEnhancementSettings
     public int centralVisionRating = 0;
     public bool hadCollisions = false;
     public int totalCollisions = 0;
+}
+
+/// <summary>
+/// Complete Enhancement Settings - includes visual, audio, and haptic
+/// </summary>
+[System.Serializable]
+public class CompleteEnhancementSettings
+{
+    [Header("Visual Enhancements")]
+    public VisualEnhancementSettings visualSettings;
+    
+    [Header("Audio Enhancements")]
+    public AudioEnhancementSettings audioSettings;
+    
+    [Header("Haptic Enhancements")]
+    public HapticEnhancementSettings hapticSettings;
+    
+    [Header("Trial Info")]
+    public string trialType;
+    public string timestamp;
+    public int visionRating;
+}
+
+[System.Serializable]
+public class AudioEnhancementSettings
+{
+    [Header("Assessment-Derived Values")]
+    public int centralVisionScore;           // 1-10 from algorithmic assessment
+    public float objectClarityDistance;      // 1-10m from assessment question
+    public float reliableAvoidanceDistance;  // 0.5-5m from assessment question
+    
+    [Header("Logic-Derived Values")]
+    public bool audioEnabled;
+    public string audioMode;                 // "FullSpeech", "StandardSpearcons", "LimitedSpearcons", "Disabled"
+    public float masterVolume;
+    public string decisionReason;
+}
+
+[System.Serializable]
+public class HapticEnhancementSettings
+{
+    [Header("Assessment-Derived Values")]
+    public int centralVisionScore;           // 1-10 from algorithmic assessment
+    public int leftPeripheralScore;          // 1-10 from algorithmic assessment
+    public int rightPeripheralScore;         // 1-10 from algorithmic assessment
+    
+    [Header("Logic-Derived Intensity Ranges")]
+    public HapticIntensityRange frontIntensityRange;    // Based on centralVisionScore
+    public HapticIntensityRange leftIntensityRange;     // Based on leftPeripheralScore
+    public HapticIntensityRange rightIntensityRange;    // Based on rightPeripheralScore
+    
+    [Header("Applied Settings")]
+    public bool hapticEnabled;
+    public float baseIntensity;
+    public float detectionRange;
+    public int maxHapticObjects;
+    public bool usingCustomSettings;
+    public string decisionReason;
+}
+
+[System.Serializable]
+public class HapticIntensityRange
+{
+    public float minIntensity;    // 0.0-1.0
+    public float maxIntensity;    // 0.0-1.0
+    public string reasoning;      // e.g., "Vision score 3/10 = 70%-100% intensity range"
+    
+    public HapticIntensityRange()
+    {
+        minIntensity = 0f;
+        maxIntensity = 0f;
+        reasoning = "";
+    }
+    
+    public HapticIntensityRange(float min, float max, string reason)
+    {
+        minIntensity = min;
+        maxIntensity = max;
+        reasoning = reason;
+    }
 }
 
 /// <summary>

@@ -9,12 +9,14 @@ using System.Linq;
 /// CLEANED: Removed old AppliedEnhancements system references
 /// Handles both bounding boxes and navigation line enhancements
 /// Only applies enhancements to short_algorithmic and long_algorithmic trials
+/// UPDATED: Added complete enhancement logging to JSON
 /// </summary>
 public class UnifiedEnhancementController : MonoBehaviour
 {
     [Header("System References")]
     [SerializeField] private RouteGuideSystem routeGuideSystem;
     [SerializeField] private DynamicObjectManager dynamicObjectManager;
+    [SerializeField] private UnifiedAudioController unifiedAudioController;
     
     [Header("Enhancement Settings")]
     [Range(0.1f, 3.0f)]
@@ -59,6 +61,9 @@ public class UnifiedEnhancementController : MonoBehaviour
         
         if (dynamicObjectManager == null)
             dynamicObjectManager = FindObjectOfType<DynamicObjectManager>();
+        
+        if (unifiedAudioController == null)
+            unifiedAudioController = FindObjectOfType<UnifiedAudioController>();
         
         Debug.Log("UnifiedEnhancementController: System references initialized");
     }
@@ -303,6 +308,136 @@ public class UnifiedEnhancementController : MonoBehaviour
         }
         
         Debug.Log($"UnifiedEnhancementController: Enhancement decision - {settings.decisionReason}");
+        
+        // NEW: Save complete enhancement settings to JSON
+        SaveCompleteEnhancementSettings(settings);
+    }
+    
+    void SaveCompleteEnhancementSettings(VisualEnhancementSettings visualSettings)
+    {
+        if (SessionManager.Instance == null) return;
+        
+        var completeSettings = new CompleteEnhancementSettings();
+        completeSettings.visualSettings = visualSettings;
+        completeSettings.trialType = currentTrialType;
+        completeSettings.timestamp = System.DateTime.Now.ToString();
+        completeSettings.visionRating = visionRating;
+        
+        // Get algorithmic assessment results for complete data
+        UserSession session = SessionManager.Instance.GetCurrentSession();
+        AlgorithmicAssessmentResults assessmentResults = session?.algorithmicResults;
+        
+        // Collect audio settings with assessment-derived values
+        if (unifiedAudioController != null && assessmentResults != null)
+        {
+            completeSettings.audioSettings = new AudioEnhancementSettings
+            {
+                // Assessment-derived values
+                centralVisionScore = assessmentResults.centralVisionRating,
+                objectClarityDistance = assessmentResults.objectClarityDistance,
+                reliableAvoidanceDistance = assessmentResults.reliableAvoidanceDistance,
+                
+                // Logic-derived values
+                audioEnabled = unifiedAudioController.IsSystemActive(),
+                audioMode = unifiedAudioController.GetCurrentAudioMode().ToString(),
+                masterVolume = unifiedAudioController.masterVolume,
+                decisionReason = GenerateAudioDecisionReason(assessmentResults.centralVisionRating)
+            };
+        }
+        
+        // Collect haptic settings with assessment-derived values
+        var hapticController = FindObjectOfType<SpatialHapticController>();
+        if (hapticController != null && assessmentResults != null)
+        {
+            completeSettings.hapticSettings = new HapticEnhancementSettings
+            {
+                // Assessment-derived values
+                centralVisionScore = assessmentResults.centralVisionRating,
+                leftPeripheralScore = assessmentResults.leftPeripheralRating,
+                rightPeripheralScore = assessmentResults.rightPeripheralRating,
+                
+                // Logic-derived intensity ranges
+                frontIntensityRange = CalculateHapticIntensityRange(assessmentResults.centralVisionRating, "Front"),
+                leftIntensityRange = CalculateHapticIntensityRange(assessmentResults.leftPeripheralRating, "Left"),
+                rightIntensityRange = CalculateHapticIntensityRange(assessmentResults.rightPeripheralRating, "Right"),
+                
+                // Applied settings
+                hapticEnabled = hapticController.IsHapticEnabled(),
+                baseIntensity = hapticController.baseIntensity,
+                detectionRange = hapticController.detectionRange,
+                maxHapticObjects = hapticController.maxHapticObjects,
+                usingCustomSettings = hapticController.IsUsingCustomSettings(),
+                decisionReason = GenerateHapticDecisionReason(assessmentResults)
+            };
+        }
+        
+        // Save to JSON
+        string trialDataPath = SessionManager.Instance.GetTrialDataPath(currentTrialType);
+        string jsonPath = Path.Combine(trialDataPath, "complete_enhancements.json");
+        
+        string jsonData = JsonUtility.ToJson(completeSettings, true);
+        File.WriteAllText(jsonPath, jsonData);
+        
+        Debug.Log($"Complete enhancement settings saved to: {jsonPath}");
+    }
+    
+    string GenerateAudioDecisionReason(int centralVisionScore)
+    {
+        if (centralVisionScore >= 1 && centralVisionScore <= 3)
+        {
+            return $"Full TTS Speech mode: Vision score {centralVisionScore}/10 (range 1-3) = poor vision requires detailed verbal descriptions";
+        }
+        else if (centralVisionScore >= 4 && centralVisionScore <= 6)
+        {
+            return $"Standard Spearcons mode: Vision score {centralVisionScore}/10 (range 4-6) = moderate vision uses audio clips for all nearby objects";
+        }
+        else if (centralVisionScore >= 7 && centralVisionScore <= 10)
+        {
+            return $"Limited Spearcons mode: Vision score {centralVisionScore}/10 (range 7-10) = good vision only needs audio for distant/unclear objects";
+        }
+        else
+        {
+            return $"Audio disabled: Invalid vision score ({centralVisionScore})";
+        }
+    }
+    
+    HapticIntensityRange CalculateHapticIntensityRange(int visionScore, string direction)
+    {
+        HapticIntensityRange range = new HapticIntensityRange();
+        
+        if (visionScore >= 1 && visionScore <= 3)
+        {
+            range.minIntensity = 0.7f;
+            range.maxIntensity = 1.0f;
+            range.reasoning = $"Vision score {visionScore}/10 (range 1-3) = poor vision requires strong haptic feedback (70%-100% intensity)";
+        }
+        else if (visionScore >= 4 && visionScore <= 6)
+        {
+            range.minIntensity = 0.4f;
+            range.maxIntensity = 0.6f;
+            range.reasoning = $"Vision score {visionScore}/10 (range 4-6) = moderate vision uses medium haptic feedback (40%-60% intensity)";
+        }
+        else if (visionScore >= 7 && visionScore <= 10)
+        {
+            range.minIntensity = 0.1f;
+            range.maxIntensity = 0.3f;
+            range.reasoning = $"Vision score {visionScore}/10 (range 7-10) = good vision uses subtle haptic feedback (10%-30% intensity)";
+        }
+        else
+        {
+            range.minIntensity = 0.0f;
+            range.maxIntensity = 0.0f;
+            range.reasoning = $"Invalid vision score ({visionScore}) = no haptic feedback";
+        }
+        
+        return range;
+    }
+    
+    string GenerateHapticDecisionReason(AlgorithmicAssessmentResults assessment)
+    {
+        return $"Haptic intensity ranges calculated from assessment: Central={assessment.centralVisionRating}/10, " +
+               $"Left={assessment.leftPeripheralRating}/10, Right={assessment.rightPeripheralRating}/10. " +
+               $"Each direction gets different intensity caps based on corresponding vision score.";
     }
     
     // PUBLIC API METHODS - Runtime control

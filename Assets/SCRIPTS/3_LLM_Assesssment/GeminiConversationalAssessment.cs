@@ -18,7 +18,8 @@ public class GeminiConversationalAssessment : MonoBehaviour
     public string geminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
     
     [Header("Assessment Limits")]
-    public int maxQuestions = 15;
+    public int maxQuestions = 10;
+    public int minQuestions = 4;
     
     [Header("SessionManager Integration")]
     public bool useSessionManager = true;
@@ -177,6 +178,9 @@ public class GeminiConversationalAssessment : MonoBehaviour
             string jsonData = File.ReadAllText(jsonPath);
             currentSession = JsonUtility.FromJson<NavigationSession>(jsonData);
             Debug.Log($"Navigation session loaded: {currentSession.totalCollisions} collisions, {currentSession.duration:F1}s duration");
+
+            ExtractCollisionDataFromNavigationPoints();
+
         }
         else
         {
@@ -255,11 +259,38 @@ public class GeminiConversationalAssessment : MonoBehaviour
         if (!string.IsNullOrEmpty(preAnalysisText))
         {
             contextBuilder.AppendLine("PRE-NAVIGATION ROUTE ANALYSIS:");
-            string truncatedPreAnalysis = preAnalysisText.Length > 800 ? 
-                preAnalysisText.Substring(0, 800) + "..." : preAnalysisText;
+            string truncatedPreAnalysis = preAnalysisText.Length > 500 ? 
+                preAnalysisText.Substring(0, 500) + "..." : preAnalysisText;
             contextBuilder.AppendLine(truncatedPreAnalysis);
         }
         
+        contextBuilder.AppendLine();
+        contextBuilder.AppendLine("AVAILABLE ENHANCEMENT MODALITIES & CONFIGURATIONS:");
+        contextBuilder.AppendLine("Use this knowledge to inform your questions, but don't mention technical details to the user.");
+        contextBuilder.AppendLine();
+        contextBuilder.AppendLine("1. VISUAL ENHANCEMENTS:");
+        contextBuilder.AppendLine("   - Navigation Line: width (0.2-0.6), opacity (0-100%)");
+        contextBuilder.AppendLine("     * Thicker lines = more visible but potentially distracting");
+        contextBuilder.AppendLine("     * Higher opacity = more prominent, lower = more subtle");
+        contextBuilder.AppendLine("   - Bounding Boxes: width (0.02-0.2), opacity (0-100%), range (5-50m)");
+        contextBuilder.AppendLine("     * Shows outlines around detected objects");
+        contextBuilder.AppendLine("     * Range determines how far away objects start showing boxes");
+        contextBuilder.AppendLine();
+        contextBuilder.AppendLine("2. AUDIO ENHANCEMENTS (choose only ONE type):");
+        contextBuilder.AppendLine("   - TTS Speech: interval (0.15-5s) - speaks object names aloud with direction such as 'left car'");
+        contextBuilder.AppendLine("     * Lower intervals = more frequent announcements");
+        contextBuilder.AppendLine("   - Spatial Spearcon (accelerated spatial speech): interval (0.5-3s) - object name with directional audio");
+        contextBuilder.AppendLine("     * Objects names with spatial audio positioning indicating where the object is such as 'car' ");
+        contextBuilder.AppendLine("   - Spearcon with Distance (accelerated spatial speech): interval (0.5-3s), distance threshold (0-10m)");
+        contextBuilder.AppendLine("     * Objects names with spatial audio positioning indicating where the object is such as 'car' - Only announces objects beyond the distance threshold");
+        contextBuilder.AppendLine();
+        contextBuilder.AppendLine("3. HAPTIC ENHANCEMENTS (vibration vest):");
+        contextBuilder.AppendLine("   - Three regions: Central, Left, Right chest areas");
+        contextBuilder.AppendLine("   - Each region: min intensity (0-100%), max intensity (0-100%)");
+        contextBuilder.AppendLine("     * These intensities are applied between 1.5m-2.5m of the object");
+        contextBuilder.AppendLine("     * Closer to object = closer to max intensity, further away = closer to minimum intensity");
+        contextBuilder.AppendLine("   - Object count (1, 2, or 3) - how many nearest objects to convey");
+        contextBuilder.AppendLine("     * 1 = simple (only closest), 3 = complex (multiple objects)");
         contextBuilder.AppendLine();
         contextBuilder.AppendLine("CONVERSATION RULES:");
         contextBuilder.AppendLine("1. You are having a REAL-TIME conversation - each response should flow naturally from what the person just said");
@@ -267,15 +298,85 @@ public class GeminiConversationalAssessment : MonoBehaviour
         contextBuilder.AppendLine("3. Reference specific observations when relevant (e.g., 'I noticed you collided more with X...')");
         contextBuilder.AppendLine("4. Keep questions conversational and non-technical");
         contextBuilder.AppendLine("5. Probe deeper when responses are unclear or interesting");
-        contextBuilder.AppendLine("6. Stop asking questions when you have enough information to make enhancement decisions");
-        contextBuilder.AppendLine($"7. MAXIMUM {maxQuestions} questions total");
+        contextBuilder.AppendLine("6. Naturally explore their preferences for different types of assistance (visual, audio, haptic feedback)");
+        contextBuilder.AppendLine("7. Ask questions that help you understand their needs so YOU can configure the optimal settings");
+        contextBuilder.AppendLine("8. Ask about what they think might be helpful for their navigation challenges");
+        contextBuilder.AppendLine("9. Don't use all questions for modality selection - first understand the challenges they faced during navigation");
+        contextBuilder.AppendLine($"10. You MUST ask at least {minQuestions} questions before finishing the assessment");
+        contextBuilder.AppendLine($"11. MAXIMUM {maxQuestions} questions total");
+        contextBuilder.AppendLine("12. Only stop asking questions when you have enough information AND have reached the minimum");
         contextBuilder.AppendLine();
-        contextBuilder.AppendLine("GOAL: Determine the best navigation assistance modalities for this person.");
+        contextBuilder.AppendLine("GOAL: Determine the best navigation assistance modalities for this person based on both their performance AND their preferences.");
         contextBuilder.AppendLine();
         
         fullContextPrompt = contextBuilder.ToString();
         
         Debug.Log($"Created master context prompt: {fullContextPrompt.Length} characters");
+    }
+
+    void ExtractCollisionDataFromNavigationPoints()
+    {
+        if (currentSession == null || currentSession.dataPoints == null) return;
+        
+        // Extract collision data from individual data points if dictionaries are empty
+        if (currentSession.collisionsByObjectType == null || currentSession.collisionsByObjectType.Count == 0)
+        {
+            Debug.Log("Extracting collision object types from navigation data points...");
+            
+            currentSession.collisionsByObjectType = new Dictionary<string, int>();
+            
+            var collisionPoints = currentSession.dataPoints.Where(dp => dp.isCollision && !string.IsNullOrEmpty(dp.collisionObject));
+            
+            foreach (var collision in collisionPoints)
+            {
+                string objectType = collision.collisionObject;
+                
+                if (currentSession.collisionsByObjectType.ContainsKey(objectType))
+                {
+                    currentSession.collisionsByObjectType[objectType]++;
+                }
+                else
+                {
+                    currentSession.collisionsByObjectType[objectType] = 1;
+                }
+            }
+            
+            Debug.Log($"Extracted collision data: {currentSession.collisionsByObjectType.Count} object types");
+            foreach (var kvp in currentSession.collisionsByObjectType)
+            {
+                Debug.Log($"  {kvp.Key}: {kvp.Value} collisions");
+            }
+        }
+        
+        // Do the same for body parts if needed
+        if (currentSession.collisionsByBodyPart == null || currentSession.collisionsByBodyPart.Count == 0)
+        {
+            Debug.Log("Extracting collision body parts from navigation data points...");
+            
+            currentSession.collisionsByBodyPart = new Dictionary<string, int>();
+            
+            var collisionPoints = currentSession.dataPoints.Where(dp => dp.isCollision && !string.IsNullOrEmpty(dp.bodyPartInvolved));
+            
+            foreach (var collision in collisionPoints)
+            {
+                string bodyPart = collision.bodyPartInvolved;
+                
+                if (currentSession.collisionsByBodyPart.ContainsKey(bodyPart))
+                {
+                    currentSession.collisionsByBodyPart[bodyPart]++;
+                }
+                else
+                {
+                    currentSession.collisionsByBodyPart[bodyPart] = 1;
+                }
+            }
+            
+            Debug.Log($"Extracted body part data: {currentSession.collisionsByBodyPart.Count} body parts");
+            foreach (var kvp in currentSession.collisionsByBodyPart)
+            {
+                Debug.Log($"  {kvp.Key}: {kvp.Value} collisions");
+            }
+        }
     }
     
     IEnumerator BeginRealTimeConversation()
@@ -318,7 +419,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
         
         questionCount++;
         
-        Debug.Log($"Generating question {questionCount}/{maxQuestions}...");
+        Debug.Log($"Generating question {questionCount}/{maxQuestions} (min: {minQuestions})...");
         
         if (conversationUI != null)
         {
@@ -361,7 +462,18 @@ public class GeminiConversationalAssessment : MonoBehaviour
         else
         {
             promptBuilder.AppendLine($"TASK: Ask your NEXT question (#{questionCount}). Build on their previous responses and your observations.");
-            promptBuilder.AppendLine("Consider: Do you need clarification? Want to explore something deeper? Have enough info on this topic?");
+            
+            // ADD MINIMUM LOGIC HERE:
+            if (questionCount < minQuestions)
+            {
+                promptBuilder.AppendLine($"IMPORTANT: You must ask at least {minQuestions} questions total. You are currently on question {questionCount}, so you CANNOT finish yet.");
+                promptBuilder.AppendLine("Continue exploring their vision capabilities and navigation challenges.");
+            }
+            else
+            {
+                promptBuilder.AppendLine($"You have asked {questionCount} questions (minimum {minQuestions} reached). You can now finish if you have enough information, or continue asking up to {maxQuestions} total.");
+                promptBuilder.AppendLine("Consider: Do you need clarification? Want to explore something deeper? Have enough info on this topic?");
+            }
         }
         
         promptBuilder.AppendLine();
@@ -369,8 +481,18 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("If you want to ask another question, respond with:");
         promptBuilder.AppendLine("QUESTION: [Your question here]");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("If you have enough information to make decisions, respond with:");
-        promptBuilder.AppendLine("ENOUGH_INFO: I have sufficient information to make personalized recommendations.");
+        
+        // MODIFY THE FINISH CONDITION:
+        if (questionCount >= minQuestions)
+        {
+            promptBuilder.AppendLine("If you have enough information to make decisions, respond with:");
+            promptBuilder.AppendLine("ENOUGH_INFO: I have sufficient information to make personalized recommendations.");
+        }
+        else
+        {
+            promptBuilder.AppendLine($"NOTE: You must ask at least {minQuestions} questions before you can finish the assessment.");
+        }
+        
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("Generate your response now:");
         
@@ -415,11 +537,23 @@ public class GeminiConversationalAssessment : MonoBehaviour
                 
                 Debug.Log($"AI Response: {responseText}");
                 
+                // CHECK MINIMUM BEFORE ALLOWING FINISH:
                 if (responseText.ToUpper().Contains("ENOUGH_INFO:"))
                 {
-                    Debug.Log("AI has enough information, proceeding to decisions");
-                    StartCoroutine(GenerateFinalDecisions());
-                    return;
+                    if (questionCount >= minQuestions)
+                    {
+                        Debug.Log($"AI has enough information after {questionCount} questions (min: {minQuestions}), proceeding to decisions");
+                        StartCoroutine(GenerateFinalDecisions());
+                        return;
+                    }
+                    else
+                    {
+                        Debug.Log($"AI tried to finish early ({questionCount}/{minQuestions} questions) - forcing another question");
+                        // Force another question by treating this as a regular question response
+                        string forceQuestion = $"Please ask one more question to better understand their navigation challenges. You've only asked {questionCount} out of the minimum {minQuestions} questions required.";
+                        ShowQuestionAndWaitForResponse(forceQuestion);
+                        return;
+                    }
                 }
                 
                 string question = ExtractQuestionFromResponse(responseText);
@@ -611,29 +745,31 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("   - Can be disabled if visual information would be overwhelming or unhelpful");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("2. AUDIO ENHANCEMENTS (select only ONE audio option):");
-        promptBuilder.AppendLine("   - TTS Speech: Speaks the name of the nearest object aloud");
+        promptBuilder.AppendLine("   - TTS Speech: Speaks object names aloud, such as 'left car'");
         promptBuilder.AppendLine("     * Interval (0.15-5s): How often announcements occur - lower = more frequent updates");
-        promptBuilder.AppendLine("   - Spatial Spearcon: Plays directional sound cues for the nearest object");
+        promptBuilder.AppendLine("   - Spatial Spearcon (accelerated spatial speech): Plays spatial speech, such as 'car'");
         promptBuilder.AppendLine("     * Interval (0.5-3s): How often sound cues play - lower = more frequent audio");
-        promptBuilder.AppendLine("   - Spatial Spearcon with Distance Threshold: Same as above but only for distant objects");
+        promptBuilder.AppendLine("   - Spatial Spearcon with Distance Threshold (accelerated spatial speech: Same as above but only for distant objects");
         promptBuilder.AppendLine("     * Interval (0.5-3s): How often sound cues play - lower = more frequent audio");
         promptBuilder.AppendLine("     * Distance (0-10m): Only objects beyond this distance trigger audio - higher = fewer close objects announced");
         promptBuilder.AppendLine("   - Can be disabled if audio would be distracting or user prefers silence");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("3. HAPTIC ENHANCEMENTS (uses haptic vest with vibration feedback):");
-        promptBuilder.AppendLine("   If haptics chosen, ALL settings must be configured:");
+        promptBuilder.AppendLine("   If haptics chosen, ALL settings must be configured (each region can have different intensities):");
         promptBuilder.AppendLine("   - Central region (middle of chest): Vibrates for objects directly ahead");
-        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength for distant objects");
-        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength for very close objects");
+        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength");
+        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength");
         promptBuilder.AppendLine("   - Left region (left side of chest): Vibrates for objects to the left");
-        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength for distant objects");
-        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength for very close objects");
+        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength");
+        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength");
         promptBuilder.AppendLine("   - Right region (right side of chest): Vibrates for objects to the right");
-        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength for distant objects");
-        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength for very close objects");
-        promptBuilder.AppendLine("   - Number of nearest objects to convey: 1, 2, or 3");
-        promptBuilder.AppendLine("     * 1 = only closest object causes vibration (simple, less overwhelming)");
-        promptBuilder.AppendLine("     * 2-3 = multiple objects can vibrate simultaneously (more information, potentially more complex)");
+        promptBuilder.AppendLine("     * Min intensity (0-100%): Baseline vibration strength");
+        promptBuilder.AppendLine("     * Max intensity (0-100%): Maximum vibration strength");
+        promptBuilder.AppendLine("   - Intensity is distributed between 1.5m to 2.5m between the object and user");
+        promptBuilder.AppendLine("   - Max intensity at 1.5m, min intensity at 2.5m");
+        promptBuilder.AppendLine("   - Number of nearest objects to convey: 1 or 2");
+        promptBuilder.AppendLine("     * 1 = only closest object causes vibration (simple)");
+        promptBuilder.AppendLine("     * 2 = two closest objects can vibrate simultaneously (more information)");
         promptBuilder.AppendLine("   - Can be disabled if physical vibrations would be uncomfortable or distracting");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("RESPONSE FORMAT - Use this exact structure:");
@@ -655,33 +791,47 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("HAPTIC_RIGHT_MIN: 30");
         promptBuilder.AppendLine("HAPTIC_RIGHT_MAX: 80");
         promptBuilder.AppendLine("HAPTIC_OBJECT_COUNT: 2");
-        promptBuilder.AppendLine("REASONING: [Your detailed reasoning here]");
+        promptBuilder.AppendLine("REASONING: [Provide detailed reasoning for each modality and setting, referencing specific user responses and navigation data that informed your decisions. Explain why each value was chosen and how user preferences influenced the configuration.]");
         
         return promptBuilder.ToString();
     }
         
     IEnumerator SendFinalDecisionRequest(string prompt)
     {
-        string requestJson = CreateGeminiRequestJson(prompt);
+        int maxRetries = 3;
+        float retryDelay = 2f;
         
-        using (UnityWebRequest request = new UnityWebRequest(geminiApiUrl + "?key=" + geminiApiKey, "POST"))
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(requestJson);
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
+            string requestJson = CreateGeminiRequestJson(prompt);
             
-            yield return request.SendWebRequest();
-            
-            if (request.result == UnityWebRequest.Result.Success)
+            using (UnityWebRequest request = new UnityWebRequest(geminiApiUrl + "?key=" + geminiApiKey, "POST"))
             {
-                ProcessFinalDecisionResponse(request.downloadHandler.text);
-            }
-            else
-            {
-                Debug.LogError($"Final decision request failed: {request.error}");
-                CreateFallbackDecisions();
-                CompleteAssessment();
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(requestJson);
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                
+                yield return request.SendWebRequest();
+                
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    ProcessFinalDecisionResponse(request.downloadHandler.text);
+                    yield break; // Success, exit retry loop
+                }
+                else if (request.responseCode == 503 && attempt < maxRetries)
+                {
+                    Debug.LogWarning($"Final decision 503 Service Unavailable - Retry {attempt}/{maxRetries} in {retryDelay}s");
+                    yield return new WaitForSeconds(retryDelay);
+                    retryDelay *= 2; // Exponential backoff
+                }
+                else
+                {
+                    Debug.LogError($"Final decision request failed: {request.error} (Response Code: {request.responseCode})");
+                    CreateFallbackDecisions();
+                    CompleteAssessment();
+                    yield break;
+                }
             }
         }
     }

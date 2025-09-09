@@ -201,7 +201,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   geminiApiKey: AIzaSyDBI39ajifrB_GqCfeWIG1RBt9KEzVfuU4
   geminiApiUrl: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
-  maxQuestions: 15
+  maxQuestions: 10
+  minQuestions: 4
   useSessionManager: 1
   conversationUI: {fileID: 1497635164}
 --- !u!4 &861594476
@@ -517,7 +518,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   customDataFolderName: VisionAssessmentData
   useDocumentsFolder: 1
-  userID: User006
+  userID: User001
   currentTrial: llm
   loadExistingSession: 1
   requirePreAnalysis: 0

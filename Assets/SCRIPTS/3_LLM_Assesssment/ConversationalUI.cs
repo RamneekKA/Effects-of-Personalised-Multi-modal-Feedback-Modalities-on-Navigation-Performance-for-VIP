@@ -513,7 +513,7 @@ public class ConversationalUI : MonoBehaviour
         {
             sb.AppendLine($"ENABLED - {config.audioType}");
             sb.AppendLine($"  Interval: {config.audioInterval:F1}s");
-            if (config.audioType == "SPEARCON_DISTANCE")
+            if (config.audioType == "SPATIAL_SPEECH_DISTANCE")
             {
                 sb.AppendLine($"  Distance Threshold: {config.audioDistance:F1}m");
             }

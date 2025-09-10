@@ -509,25 +509,39 @@ public class GeminiConversationalAssessment : MonoBehaviour
     
     IEnumerator SendQuestionRequest(string prompt)
     {
-        string requestJson = CreateGeminiRequestJson(prompt);
+        int maxRetries = 3;
+        float retryDelay = 2f;
         
-        using (UnityWebRequest request = new UnityWebRequest(geminiApiUrl + "?key=" + geminiApiKey, "POST"))
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(requestJson);
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
+            string requestJson = CreateGeminiRequestJson(prompt);
             
-            yield return request.SendWebRequest();
-            
-            if (request.result == UnityWebRequest.Result.Success)
+            using (UnityWebRequest request = new UnityWebRequest(geminiApiUrl + "?key=" + geminiApiKey, "POST"))
             {
-                ProcessQuestionResponse(request.downloadHandler.text);
-            }
-            else
-            {
-                Debug.LogError($"Question request failed: {request.error}");
-                HandleQuestionRequestFailure();
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(requestJson);
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                
+                yield return request.SendWebRequest();
+                
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    ProcessQuestionResponse(request.downloadHandler.text);
+                    yield break; // Success, exit retry loop
+                }
+                else if (request.responseCode == 503 && attempt < maxRetries)
+                {
+                    Debug.LogWarning($"Question request 503 Service Unavailable - Retry {attempt}/{maxRetries} in {retryDelay}s");
+                    yield return new WaitForSeconds(retryDelay);
+                    retryDelay *= 2; // Exponential backoff
+                }
+                else
+                {
+                    Debug.LogError($"Question request failed: {request.error} (Response Code: {request.responseCode})");
+                    HandleQuestionRequestFailure();
+                    yield break;
+                }
             }
         }
     }
@@ -785,26 +799,48 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("     * 2 = two closest objects can vibrate simultaneously (more information)");
         promptBuilder.AppendLine("   - Can be disabled if physical vibrations would be uncomfortable or distracting");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("RESPONSE FORMAT - Use this exact structure:");
-        promptBuilder.AppendLine("VISUAL_ENABLED: YES/NO");
-        promptBuilder.AppendLine("NAV_LINE_WIDTH: 0.4");
-        promptBuilder.AppendLine("NAV_LINE_OPACITY: 80");
-        promptBuilder.AppendLine("BBOX_WIDTH: 0.1");
-        promptBuilder.AppendLine("BBOX_OPACITY: 60");
-        promptBuilder.AppendLine("BBOX_RANGE: 25");
-        promptBuilder.AppendLine("AUDIO_ENABLED: YES/NO");
-        promptBuilder.AppendLine("AUDIO_TYPE: TTS/SPATIAL_SPEECH/SPATIAL_SPEECH_DISTANCE");
-        promptBuilder.AppendLine("AUDIO_INTERVAL: 1.0");
-        promptBuilder.AppendLine("AUDIO_DISTANCE: 5.0");
-        promptBuilder.AppendLine("HAPTIC_ENABLED: YES/NO");
-        promptBuilder.AppendLine("HAPTIC_CENTRAL_MIN: 30");
-        promptBuilder.AppendLine("HAPTIC_CENTRAL_MAX: 80");
-        promptBuilder.AppendLine("HAPTIC_LEFT_MIN: 30");
-        promptBuilder.AppendLine("HAPTIC_LEFT_MAX: 80");
-        promptBuilder.AppendLine("HAPTIC_RIGHT_MIN: 30");
-        promptBuilder.AppendLine("HAPTIC_RIGHT_MAX: 80");
-        promptBuilder.AppendLine("HAPTIC_OBJECT_COUNT: 2");
-        promptBuilder.AppendLine("REASONING: [Provide detailed reasoning for each modality and setting, referencing specific user responses and navigation data that informed your decisions. Explain why each value was chosen and how user preferences influenced the configuration.]");
+        
+        // CRITICAL: Add the anti-copying instructions (Option 3)
+        promptBuilder.AppendLine("CRITICAL INSTRUCTIONS:");
+        promptBuilder.AppendLine("Do NOT copy any placeholder or example values. You must analyze the conversation and navigation data to determine appropriate settings for THIS specific person. Using generic or placeholder values will result in poor assistance for the user.");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("Think through each parameter:");
+        promptBuilder.AppendLine("1. What did their navigation behavior show?");
+        promptBuilder.AppendLine("2. What did they say in the conversation?");
+        promptBuilder.AppendLine("3. What would help THEIR specific challenges?");
+        promptBuilder.AppendLine("4. Choose values that match THEIR needs, not generic defaults.");
+        promptBuilder.AppendLine();
+        
+        // Updated response format with placeholders (Option 1)
+        promptBuilder.AppendLine("RESPONSE FORMAT - Use this exact structure with YOUR calculated values:");
+        promptBuilder.AppendLine("VISUAL_ENABLED: [YES or NO based on your analysis]");
+        promptBuilder.AppendLine("NAV_LINE_WIDTH: [your chosen value between 0.2-0.6]");
+        promptBuilder.AppendLine("NAV_LINE_OPACITY: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("BBOX_WIDTH: [your chosen value between 0.02-0.2]");
+        promptBuilder.AppendLine("BBOX_OPACITY: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("BBOX_RANGE: [your chosen distance 5-50]");
+        promptBuilder.AppendLine("AUDIO_ENABLED: [YES or NO based on your analysis]");
+        promptBuilder.AppendLine("AUDIO_TYPE: [TTS, SPATIAL_SPEECH, or SPATIAL_SPEECH_DISTANCE]");
+        promptBuilder.AppendLine("AUDIO_INTERVAL: [your chosen value within valid range]");
+        promptBuilder.AppendLine("AUDIO_DISTANCE: [your chosen value 0-10, only if using SPATIAL_SPEECH_DISTANCE]");
+        promptBuilder.AppendLine("HAPTIC_ENABLED: [YES or NO based on your analysis]");
+        promptBuilder.AppendLine("HAPTIC_CENTRAL_MIN: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("HAPTIC_CENTRAL_MAX: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("HAPTIC_LEFT_MIN: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("HAPTIC_LEFT_MAX: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("HAPTIC_RIGHT_MIN: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("HAPTIC_RIGHT_MAX: [your chosen percentage 0-100]");
+        promptBuilder.AppendLine("HAPTIC_OBJECT_COUNT: [1 or 2]");
+        promptBuilder.AppendLine("REASONING: [Write a comprehensive analysis of at least 300-500 words covering:");
+        promptBuilder.AppendLine("1. NAVIGATION ANALYSIS: What specific patterns did you observe in their navigation behavior? Which collision types, body parts, speeds, and deviations informed your decisions?");
+        promptBuilder.AppendLine("2. CONVERSATION INSIGHTS: What key preferences, challenges, and feedback did the user express during our conversation?");
+        promptBuilder.AppendLine("3. VISUAL DECISIONS: Explain in detail why you chose each visual parameter (line width, opacity, bounding box settings). What user factors influenced these specific values?");
+        promptBuilder.AppendLine("4. AUDIO DECISIONS: Explain your audio choice (enabled/disabled, type selection, interval timing). How did user responses guide this decision?");
+        promptBuilder.AppendLine("5. HAPTIC DECISIONS: Detail your haptic configuration reasoning (enabled/disabled, intensity levels for each region, object count). What user needs drove these choices?");
+        promptBuilder.AppendLine("6. ALTERNATIVE CONSIDERATIONS: What other configurations did you consider but reject? Why were those alternatives less suitable for this specific user?");
+        promptBuilder.AppendLine("7. PERSONALIZATION SUMMARY: How does this configuration specifically address this user's unique navigation challenges and preferences?]");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("IMPORTANT: Replace ALL bracketed placeholders with actual values based on your analysis. Do not leave any brackets or placeholder text in your response.");
         
         return promptBuilder.ToString();
     }
@@ -971,8 +1007,21 @@ public class GeminiConversationalAssessment : MonoBehaviour
                 for (int j = i + 1; j < lines.Length; j++)
                 {
                     string line = lines[j].Trim();
-                    if (string.IsNullOrEmpty(line) || line.Contains(":"))
+                    
+                    // Stop if we hit another main parameter (ones that are actual config parameters)
+                    if (line.StartsWith("VISUAL_ENABLED:") || 
+                        line.StartsWith("NAV_LINE_") || 
+                        line.StartsWith("BBOX_") || 
+                        line.StartsWith("AUDIO_ENABLED:") || 
+                        line.StartsWith("AUDIO_TYPE:") || 
+                        line.StartsWith("AUDIO_INTERVAL:") || 
+                        line.StartsWith("AUDIO_DISTANCE:") || 
+                        line.StartsWith("HAPTIC_"))
+                    {
                         break;
+                    }
+                    
+                    // Include all reasoning content (numbered sections, explanations, etc.)
                     reasoning.AppendLine(line);
                 }
                 
@@ -1037,11 +1086,26 @@ public class GeminiConversationalAssessment : MonoBehaviour
             string llmAssessmentPath = Path.Combine(sessionPath, "04_LLMAssessment");
             Directory.CreateDirectory(llmAssessmentPath);
             
-            string jsonPath = Path.Combine(llmAssessmentPath, $"llm_realtime_assessment_{System.DateTime.Now:yyyyMMdd_HHmmss}.json");
+            string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string jsonPath = Path.Combine(llmAssessmentPath, $"llm_realtime_assessment_{timestamp}.json");
+            string reasoningPath = Path.Combine(llmAssessmentPath, $"llm_reasoning_{timestamp}.txt");
+            
+            // Save JSON without reasoning
+            string tempReasoning = assessmentResults.llmReasoning;
+            assessmentResults.llmReasoning = "[See separate reasoning file]";
             string jsonData = JsonUtility.ToJson(assessmentResults, true);
+            assessmentResults.llmReasoning = tempReasoning; // Restore original
+            
             File.WriteAllText(jsonPath, jsonData);
             
-            Debug.Log($"Real-time LLM assessment results saved to: {jsonPath}");
+            // Save reasoning as separate readable text file
+            if (!string.IsNullOrEmpty(tempReasoning))
+            {
+                File.WriteAllText(reasoningPath, tempReasoning);
+            }
+            
+            Debug.Log($"Assessment results saved to: {jsonPath}");
+            Debug.Log($"Reasoning saved to: {reasoningPath}");
             
             UserSession session = SessionManager.Instance.GetCurrentSession();
             // Note: You may need to add enhancementResults field to UserSession or adapt this

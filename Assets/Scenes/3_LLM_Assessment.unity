@@ -518,7 +518,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   customDataFolderName: VisionAssessmentData
   useDocumentsFolder: 1
-  userID: User002
+  userID: User003
   currentTrial: llm
   loadExistingSession: 1
   requirePreAnalysis: 0

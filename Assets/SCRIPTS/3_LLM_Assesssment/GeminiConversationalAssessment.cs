@@ -272,7 +272,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
         contextBuilder.AppendLine("   - Navigation Line: width (0.2-0.6), opacity (0-100%)");
         contextBuilder.AppendLine("     * Thicker lines = more visible but potentially distracting");
         contextBuilder.AppendLine("     * Higher opacity = more prominent, lower = more subtle");
-        contextBuilder.AppendLine("   - Bounding Boxes: width (0.02-0.2), opacity (0-100%), range (5-50m)");
+        contextBuilder.AppendLine("   - Bounding Boxes: width (0.02-0.2), opacity (0-100%), range (5-35m)");
         contextBuilder.AppendLine("     * Shows outlines around detected objects");
         contextBuilder.AppendLine("     * Range determines how far away objects start showing boxes");
         contextBuilder.AppendLine();
@@ -763,7 +763,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("   - Bounding Box (shows rectangular outlines around detected objects):");
         promptBuilder.AppendLine("     * Line width (0.02-0.2): Higher values = thicker box outlines, more prominent");
         promptBuilder.AppendLine("     * Opacity (0-100%): Higher values = more solid boxes, lower = more subtle");
-        promptBuilder.AppendLine("     * Range (5-50m): Distance at which boxes appear - higher = boxes shown from farther away");
+        promptBuilder.AppendLine("     * Range (5-35m): Distance at which boxes appear - higher = boxes shown from farther away");
         promptBuilder.AppendLine("   - Can be disabled if visual information would be overwhelming or unhelpful");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("2. AUDIO ENHANCEMENTS (select only ONE audio option):");
@@ -818,7 +818,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("NAV_LINE_OPACITY: [your chosen percentage 0-100]");
         promptBuilder.AppendLine("BBOX_WIDTH: [your chosen value between 0.02-0.2]");
         promptBuilder.AppendLine("BBOX_OPACITY: [your chosen percentage 0-100]");
-        promptBuilder.AppendLine("BBOX_RANGE: [your chosen distance 5-50]");
+        promptBuilder.AppendLine("BBOX_RANGE: [your chosen distance 5-35]");
         promptBuilder.AppendLine("AUDIO_ENABLED: [YES or NO based on your analysis]");
         promptBuilder.AppendLine("AUDIO_TYPE: [TTS, SPATIAL_SPEECH, or SPATIAL_SPEECH_DISTANCE]");
         promptBuilder.AppendLine("AUDIO_INTERVAL: [your chosen value within valid range]");

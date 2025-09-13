@@ -4,11 +4,12 @@ using UnityEngine;
 /// <summary>
 /// Data structures for the enhancement system
 /// Contains all the classes needed by UnifiedEnhancementController and SimplifiedVisualEnhancementManager
-/// UPDATED: Added complete enhancement settings for JSON logging
+/// UPDATED: Added boundingBoxRange and reliableAvoidanceDistance fields for complete enhancement logging
 /// </summary>
 
 /// <summary>
 /// Visual Enhancement Settings Data Structure
+/// UPDATED: Added bounding box range and reliable avoidance distance tracking
 /// </summary>
 [System.Serializable]
 public class VisualEnhancementSettings
@@ -18,6 +19,7 @@ public class VisualEnhancementSettings
     public float boundingBoxLineWidth = 0.05f;
     public float boundingBoxOpacity = 200f; // Alpha value 0-255
     public float boundingBoxSpacing = 1.0f;
+    public float boundingBoxRange = 25f; // NEW: Detection range for bounding boxes
     
     [Header("Navigation Line Settings")]
     public bool enhanceNavigationLine = false;
@@ -32,6 +34,7 @@ public class VisualEnhancementSettings
     [Header("Decision Info")]
     public string decisionReason = "";
     public int centralVisionRating = 0;
+    public float reliableAvoidanceDistance = 0f; // NEW: From algorithmic assessment Question 5
     public bool hadCollisions = false;
     public int totalCollisions = 0;
 }
@@ -119,11 +122,16 @@ public class HapticIntensityRange
 /// <summary>
 /// Simplified Visual Enhancement Generator
 /// Handles enhancement decision logic without the complexity of the original
+/// UPDATED: Added support for reliable avoidance distance-based range calculation
 /// </summary>
 [System.Serializable]
 public class SimpleEnhancementGenerator
 {
-    public static VisualEnhancementSettings GenerateEnhancements(int visionRating, NavigationSession baselineSession, int poorVisionThreshold = 3)
+    /// <summary>
+    /// UPDATED: Generate enhancements with avoidance-based bounding box range calculation
+    /// </summary>
+    public static VisualEnhancementSettings GenerateEnhancements(int visionRating, NavigationSession baselineSession, 
+        float reliableAvoidanceDistance = 2.5f, int poorVisionThreshold = 3)
     {
         VisualEnhancementSettings settings = new VisualEnhancementSettings();
         
@@ -131,32 +139,38 @@ public class SimpleEnhancementGenerator
         bool hadCollisions = baselineSession?.totalCollisions > 0;
         int totalCollisions = baselineSession?.totalCollisions ?? 0;
         
-        // Store decision info
+        // Calculate bounding box range based on reliable avoidance distance
+        float boundingBoxRange = CalculateAvoidanceBasedRange(reliableAvoidanceDistance);
+        
+        // Store decision info including new avoidance distance
         settings.centralVisionRating = visionRating;
+        settings.reliableAvoidanceDistance = reliableAvoidanceDistance; // NEW
         settings.hadCollisions = hadCollisions;
         settings.totalCollisions = totalCollisions;
+        settings.boundingBoxRange = boundingBoxRange; // NEW: Use calculated range
         
         // Main decision logic
         bool useMaximumEnhancement = visionRating <= poorVisionThreshold || hadCollisions;
         
         if (useMaximumEnhancement)
         {
-            // Maximum enhancement
+            // Maximum enhancement (except range which is always calculated from avoidance distance)
             settings.enableBoundingBoxes = true;
             settings.boundingBoxLineWidth = 0.15f;
             settings.boundingBoxOpacity = 255f;
             settings.boundingBoxSpacing = 2.0f;
+            // boundingBoxRange already set above
             
             settings.enhanceNavigationLine = true;
             settings.navigationLineWidth = 0.45f;
             settings.navigationLineOpacity = 255f;
             settings.navigationLineSpacing = 2.0f;
             
-            settings.decisionReason = $"Maximum enhancement applied. Vision rating: {visionRating}/10, Collisions: {totalCollisions}";
+            settings.decisionReason = $"Maximum enhancement applied. Vision: {visionRating}/10, Avoidance: {reliableAvoidanceDistance}m → Range: {boundingBoxRange}m, Collisions: {totalCollisions}";
         }
         else
         {
-            // Scaled enhancement based on vision rating
+            // Scaled enhancement based on vision rating (except range which is always calculated from avoidance distance)
             float visionScale = Mathf.InverseLerp(10f, poorVisionThreshold + 1f, visionRating);
             visionScale = Mathf.Clamp01(visionScale);
             
@@ -164,13 +178,14 @@ public class SimpleEnhancementGenerator
             settings.boundingBoxLineWidth = Mathf.Lerp(0.05f, 0.15f, visionScale);
             settings.boundingBoxOpacity = Mathf.Lerp(200f, 255f, visionScale);
             settings.boundingBoxSpacing = Mathf.Lerp(1.0f, 2.0f, visionScale);
+            // boundingBoxRange already set above
             
             settings.enhanceNavigationLine = true;
             settings.navigationLineWidth = Mathf.Lerp(0.25f, 0.45f, visionScale);
             settings.navigationLineOpacity = Mathf.Lerp(200f, 255f, visionScale);
             settings.navigationLineSpacing = Mathf.Lerp(1.0f, 2.0f, visionScale);
             
-            settings.decisionReason = $"Scaled enhancement applied based on vision rating: {visionRating}/10";
+            settings.decisionReason = $"Scaled enhancement applied. Vision: {visionRating}/10, Avoidance: {reliableAvoidanceDistance}m → Range: {boundingBoxRange}m";
         }
         
         // Determine object types to enhance
@@ -184,5 +199,34 @@ public class SimpleEnhancementGenerator
         }
         
         return settings;
+    }
+    
+    /// <summary>
+    /// NEW: Calculate bounding box range based on reliable avoidance distance
+    /// Matches the logic from UnifiedEnhancementController
+    /// </summary>
+    private static float CalculateAvoidanceBasedRange(float avoidanceDistance)
+    {
+        // Apply the specified ranges based on avoidance distance
+        if (avoidanceDistance <= 0.5f)
+        {
+            return 35f; // Users who can avoid at very close range get longest warning distance
+        }
+        else if (avoidanceDistance <= 1.5f) // 0.6-1.5
+        {
+            return 25f;
+        }
+        else if (avoidanceDistance <= 3.0f) // 1.6-3.0
+        {
+            return 15f;
+        }
+        else if (avoidanceDistance <= 4.0f) // 3.1-4.0
+        {
+            return 10f;
+        }
+        else // 4.1-5.0
+        {
+            return 5f; // Users who need lots of space to avoid get shorter warning (less clutter)
+        }
     }
 }

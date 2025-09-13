@@ -6,10 +6,9 @@ using System.Linq;
 
 /// <summary>
 /// Unified Enhancement Controller - Single point of control for visual enhancements
-/// CLEANED: Removed old AppliedEnhancements system references
+/// UPDATED: Added reliable avoidance distance-based bounding box range calculation
 /// Handles both bounding boxes and navigation line enhancements
 /// Only applies enhancements to short_algorithmic and long_algorithmic trials
-/// UPDATED: Added complete enhancement logging to JSON
 /// </summary>
 public class UnifiedEnhancementController : MonoBehaviour
 {
@@ -40,6 +39,8 @@ public class UnifiedEnhancementController : MonoBehaviour
     [SerializeField] private bool enhancementsActive = false;
     [SerializeField] private string currentTrialType;
     [SerializeField] private int visionRating = 5;
+    [SerializeField] private float reliableAvoidanceDistance = 2.5f; // NEW: Debug display
+    [SerializeField] private float calculatedBoundingBoxRange = 25f; // NEW: Debug display
     [SerializeField] private bool loadedFromFile = false;
     
     // Internal state
@@ -130,13 +131,15 @@ public class UnifiedEnhancementController : MonoBehaviour
         }
         
         visionRating = algorithmicResults.centralVisionRating;
-        Debug.Log($"UnifiedEnhancementController: Processing vision rating {visionRating}/10");
+        reliableAvoidanceDistance = algorithmicResults.reliableAvoidanceDistance; // NEW: Store for debugging
+        
+        Debug.Log($"UnifiedEnhancementController: Processing vision rating {visionRating}/10, avoidance distance {reliableAvoidanceDistance}m");
         
         // Get baseline navigation data for collision analysis
         NavigationSession baselineSession = GetBaselineNavigationSession(session);
         
-        // Generate enhancement settings directly (no external generator needed)
-        currentEnhancementSettings = GenerateEnhancementSettings(visionRating, baselineSession);
+        // Generate enhancement settings with new avoidance-based range calculation
+        currentEnhancementSettings = GenerateEnhancementSettings(visionRating, baselineSession, algorithmicResults);
         
         // Apply the enhancements
         ApplyEnhancements(currentEnhancementSettings);
@@ -198,7 +201,7 @@ public class UnifiedEnhancementController : MonoBehaviour
             if (results != null && results.completed)
             {
                 loadedFromFile = true;
-                Debug.Log($"UnifiedEnhancementController: Loaded assessment from file - vision rating: {results.centralVisionRating}/10");
+                Debug.Log($"UnifiedEnhancementController: Loaded assessment from file - vision: {results.centralVisionRating}/10, avoidance: {results.reliableAvoidanceDistance}m");
                 
                 // Update session with loaded data
                 session.algorithmicResults = results;
@@ -229,50 +232,89 @@ public class UnifiedEnhancementController : MonoBehaviour
         return null;
     }
     
-    VisualEnhancementSettings GenerateEnhancementSettings(int visionRating, NavigationSession baselineSession)
+    /// <summary>
+    /// UPDATED: Generate enhancement settings with reliable avoidance distance-based bounding box range
+    /// </summary>
+    VisualEnhancementSettings GenerateEnhancementSettings(int visionRating, NavigationSession baselineSession, AlgorithmicAssessmentResults assessmentResults)
     {
         VisualEnhancementSettings settings = new VisualEnhancementSettings();
         
-        // Determine if maximum enhancement is needed
+        // Calculate bounding box range based on reliable avoidance distance
+        float boundingBoxRange = CalculateAvoidanceBasedRange(assessmentResults.reliableAvoidanceDistance);
+        calculatedBoundingBoxRange = boundingBoxRange; // Store for debugging
+        
+        // Determine if maximum enhancement is needed for other visual elements
         bool hasCollisions = baselineSession?.totalCollisions > 0;
         bool useMaximumEnhancement = visionRating <= poorVisionThreshold || hasCollisions;
         
         if (useMaximumEnhancement)
         {
-            // Maximum enhancement
+            // Maximum enhancement for lines and opacity, but calculated range for bounding box distance
             settings.enableBoundingBoxes = true;
             settings.boundingBoxLineWidth = boundingBoxWidthRange;
             settings.boundingBoxOpacity = boundingBoxOpacityRange * 255f;
+            settings.boundingBoxRange = boundingBoxRange; // NEW: Use calculated range instead of fixed
             settings.enhanceNavigationLine = true;
             settings.navigationLineWidth = navigationLineWidthRange;
             settings.navigationLineOpacity = navigationLineOpacityRange * 255f;
-            settings.decisionReason = $"Maximum enhancement applied. Vision rating: {visionRating}/10" + 
+            settings.decisionReason = $"Maximum visual enhancement applied. Vision: {visionRating}/10, Avoidance distance: {assessmentResults.reliableAvoidanceDistance}m → Range: {boundingBoxRange}m" + 
                                     (hasCollisions ? $", Baseline collisions: {baselineSession.totalCollisions}" : "");
         }
         else
         {
-            // Scaled enhancement based on vision rating
+            // Scaled enhancement based on vision rating, but always use calculated range for bounding boxes
             float enhancementScale = Mathf.InverseLerp(10f, poorVisionThreshold + 1f, visionRating);
             
             settings.enableBoundingBoxes = true;
             settings.boundingBoxLineWidth = Mathf.Lerp(0.05f, boundingBoxWidthRange, enhancementScale);
             settings.boundingBoxOpacity = Mathf.Lerp(200f, boundingBoxOpacityRange * 255f, enhancementScale);
+            settings.boundingBoxRange = boundingBoxRange; // NEW: Use calculated range instead of fixed
             settings.enhanceNavigationLine = true;
             settings.navigationLineWidth = Mathf.Lerp(0.25f, navigationLineWidthRange, enhancementScale);
             settings.navigationLineOpacity = Mathf.Lerp(200f, navigationLineOpacityRange * 255f, enhancementScale);
-            settings.decisionReason = $"Scaled enhancement applied based on vision rating: {visionRating}/10";
+            settings.decisionReason = $"Scaled visual enhancement. Vision: {visionRating}/10, Avoidance distance: {assessmentResults.reliableAvoidanceDistance}m → Range: {boundingBoxRange}m";
         }
         
         // Set object type enhancements
         settings.enhanceStaticObjects = true;
         settings.enhanceDynamicObjects = true;
         
-        // Store metadata
+        // Store metadata including new avoidance distance info
         settings.centralVisionRating = visionRating;
+        settings.reliableAvoidanceDistance = assessmentResults.reliableAvoidanceDistance; // NEW
         settings.hadCollisions = hasCollisions;
         settings.totalCollisions = baselineSession?.totalCollisions ?? 0;
         
         return settings;
+    }
+    
+    /// <summary>
+    /// NEW: Calculate bounding box range based on reliable avoidance distance
+    /// Uses the specified ranges based on user's self-reported avoidance capability
+    /// </summary>
+    private float CalculateAvoidanceBasedRange(float avoidanceDistance)
+    {
+        // Apply the specified ranges based on avoidance distance
+        if (avoidanceDistance <= 0.5f)
+        {
+            return 35f; // Users who can avoid at very close range get longest warning distance
+        }
+        else if (avoidanceDistance <= 1.5f) // 0.6-1.5
+        {
+            return 25f;
+        }
+        else if (avoidanceDistance <= 3.0f) // 1.6-3.0
+        {
+            return 15f;
+        }
+        else if (avoidanceDistance <= 4.0f) // 3.1-4.0
+        {
+            return 10f;
+        }
+        else // 4.1-5.0
+        {
+            return 5f; // Users who need lots of space to avoid get shorter warning (less clutter)
+        }
     }
     
     void ApplyEnhancements(VisualEnhancementSettings settings)
@@ -293,7 +335,7 @@ public class UnifiedEnhancementController : MonoBehaviour
             Debug.Log($"UnifiedEnhancementController: Navigation line - width: {settings.navigationLineWidth:F2}, opacity: {settings.navigationLineOpacity:F0}");
         }
         
-        // Apply bounding box enhancements directly
+        // Apply bounding box enhancements with calculated range
         if (settings.enableBoundingBoxes && dynamicObjectManager != null)
         {
             dynamicObjectManager.showBoundingBoxes = true;
@@ -302,14 +344,14 @@ public class UnifiedEnhancementController : MonoBehaviour
             Color boundingColor = new Color(boundingBoxColor.r, boundingBoxColor.g, boundingBoxColor.b, 
                                           settings.boundingBoxOpacity / 255f);
             dynamicObjectManager.boundingBoxColor = boundingColor;
-            dynamicObjectManager.boundingBoxRange = 50f;
+            dynamicObjectManager.boundingBoxRange = settings.boundingBoxRange; // NEW: Use calculated range
             
-            Debug.Log($"UnifiedEnhancementController: Bounding boxes - width: {settings.boundingBoxLineWidth:F3}, opacity: {settings.boundingBoxOpacity:F0}");
+            Debug.Log($"UnifiedEnhancementController: Bounding boxes - width: {settings.boundingBoxLineWidth:F3}, opacity: {settings.boundingBoxOpacity:F0}, range: {settings.boundingBoxRange:F1}m");
         }
         
         Debug.Log($"UnifiedEnhancementController: Enhancement decision - {settings.decisionReason}");
         
-        // NEW: Save complete enhancement settings to JSON
+        // Save complete enhancement settings to JSON
         SaveCompleteEnhancementSettings(settings);
     }
     
@@ -379,6 +421,7 @@ public class UnifiedEnhancementController : MonoBehaviour
         File.WriteAllText(jsonPath, jsonData);
         
         Debug.Log($"Complete enhancement settings saved to: {jsonPath}");
+        Debug.Log($"Saved bounding box range: {visualSettings.boundingBoxRange:F1}m (calculated from avoidance distance: {assessmentResults?.reliableAvoidanceDistance:F1}m)");
     }
     
     string GenerateAudioDecisionReason(int centralVisionScore)
@@ -501,36 +544,39 @@ public class UnifiedEnhancementController : MonoBehaviour
     public VisualEnhancementSettings GetCurrentEnhancements() => currentEnhancementSettings;
     public bool AreEnhancementsActive() => enhancementsActive && systemInitialized;
     public int GetCurrentVisionRating() => visionRating;
+    public float GetReliableAvoidanceDistance() => reliableAvoidanceDistance; // NEW
+    public float GetCalculatedBoundingBoxRange() => calculatedBoundingBoxRange; // NEW
     public bool WasLoadedFromFile() => loadedFromFile;
     
     // Context menu methods for testing
     [ContextMenu("Test: Apply Maximum Enhancements")]
     public void TestMaximumEnhancements()
     {
-        var testSettings = new VisualEnhancementSettings
+        var mockAssessment = new AlgorithmicAssessmentResults
         {
-            enableBoundingBoxes = true,
-            boundingBoxLineWidth = 0.15f,
-            boundingBoxOpacity = 255f,
-            enhanceNavigationLine = true,
-            navigationLineWidth = 0.45f,
-            navigationLineOpacity = 255f,
-            enhanceStaticObjects = true,
-            enhanceDynamicObjects = true,
-            decisionReason = "Test: Maximum enhancement",
-            centralVisionRating = 3
+            centralVisionRating = 3,
+            reliableAvoidanceDistance = 1.0f, // Should result in 25m range
+            completed = true
         };
         
+        var testSettings = GenerateEnhancementSettings(3, null, mockAssessment);
         ApplyEnhancements(testSettings);
-        Debug.Log("UnifiedEnhancementController: Applied maximum test enhancements");
+        Debug.Log("UnifiedEnhancementController: Applied maximum test enhancements with calculated range");
     }
     
     [ContextMenu("Test: Apply Scaled Enhancements")]
     public void TestScaledEnhancements()
     {
-        var testSettings = GenerateEnhancementSettings(7, null); // Good vision, no collisions
+        var mockAssessment = new AlgorithmicAssessmentResults
+        {
+            centralVisionRating = 7,
+            reliableAvoidanceDistance = 4.5f, // Should result in 5m range
+            completed = true
+        };
+        
+        var testSettings = GenerateEnhancementSettings(7, null, mockAssessment);
         ApplyEnhancements(testSettings);
-        Debug.Log("UnifiedEnhancementController: Applied scaled test enhancements");
+        Debug.Log("UnifiedEnhancementController: Applied scaled test enhancements with calculated range");
     }
     
     [ContextMenu("Test: Disable Enhancements")]
@@ -547,6 +593,8 @@ public class UnifiedEnhancementController : MonoBehaviour
         Debug.Log($"Current Trial: {currentTrialType}");
         Debug.Log($"Enhancements Active: {enhancementsActive}");
         Debug.Log($"Vision Rating: {visionRating}/10");
+        Debug.Log($"Reliable Avoidance Distance: {reliableAvoidanceDistance}m");
+        Debug.Log($"Calculated Bounding Box Range: {calculatedBoundingBoxRange}m");
         Debug.Log($"Loaded From File: {loadedFromFile}");
         Debug.Log($"Route System: {(routeGuideSystem != null ? "FOUND" : "MISSING")}");
         Debug.Log($"Dynamic Object Manager: {(dynamicObjectManager != null ? "FOUND" : "MISSING")}");
@@ -555,8 +603,29 @@ public class UnifiedEnhancementController : MonoBehaviour
         {
             Debug.Log($"Current Settings: {currentEnhancementSettings.decisionReason}");
             Debug.Log($"Navigation Line: {currentEnhancementSettings.enhanceNavigationLine} (width: {currentEnhancementSettings.navigationLineWidth:F2}, opacity: {currentEnhancementSettings.navigationLineOpacity:F0})");
-            Debug.Log($"Bounding Boxes: {currentEnhancementSettings.enableBoundingBoxes} (width: {currentEnhancementSettings.boundingBoxLineWidth:F3}, opacity: {currentEnhancementSettings.boundingBoxOpacity:F0})");
+            Debug.Log($"Bounding Boxes: {currentEnhancementSettings.enableBoundingBoxes} (width: {currentEnhancementSettings.boundingBoxLineWidth:F3}, opacity: {currentEnhancementSettings.boundingBoxOpacity:F0}, range: {currentEnhancementSettings.boundingBoxRange:F1}m)");
         }
+    }
+    
+    [ContextMenu("Test: Range Calculation Examples")]
+    public void TestRangeCalculationExamples()
+    {
+        Debug.Log("=== BOUNDING BOX RANGE CALCULATION TEST ===");
+        
+        float[] testDistances = { 0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 3.5f, 4.0f, 4.5f, 5.0f };
+        
+        foreach (float distance in testDistances)
+        {
+            float calculatedRange = CalculateAvoidanceBasedRange(distance);
+            Debug.Log($"Avoidance Distance: {distance}m → Bounding Box Range: {calculatedRange}m");
+        }
+        
+        Debug.Log("=== RANGE CALCULATION BRACKETS ===");
+        Debug.Log("0.5m → 35m range");
+        Debug.Log("0.6-1.5m → 25m range"); 
+        Debug.Log("1.6-3.0m → 15m range");
+        Debug.Log("3.1-4.0m → 10m range");
+        Debug.Log("4.1-5.0m → 5m range");
     }
     
     [ContextMenu("Debug: Check Current Trial Enhancement Status")]
@@ -595,7 +664,9 @@ public class UnifiedEnhancementController : MonoBehaviour
             
             if (results != null)
             {
-                Debug.Log($"Loaded assessment: Vision rating {results.centralVisionRating}/10, Completed: {results.completed}");
+                Debug.Log($"Loaded assessment: Vision {results.centralVisionRating}/10, Avoidance {results.reliableAvoidanceDistance}m, Completed: {results.completed}");
+                float testRange = CalculateAvoidanceBasedRange(results.reliableAvoidanceDistance);
+                Debug.Log($"Would calculate bounding box range: {testRange}m");
             }
             else
             {
@@ -606,140 +677,5 @@ public class UnifiedEnhancementController : MonoBehaviour
         {
             Debug.LogError("SessionManager not available");
         }
-    }
-    
-    // Debug test scenarios
-    [ContextMenu("Debug Scenario 1: CV=3, No Collisions")]
-    public void DebugScenario1_CV3_NoCollisions()
-    {
-        Debug.Log("=== DEBUG SCENARIO 1: CV=3, NO COLLISIONS ===");
-        var mockBaseline = CreateMockBaselineSession(0); // No collisions
-        var settings = GenerateEnhancementSettings(3, mockBaseline);
-        LogEnhancementDetails(settings, "CV=3, No Collisions");
-        ApplyEnhancements(settings);
-    }
-    
-    [ContextMenu("Debug Scenario 2: CV=5, No Collisions")]
-    public void DebugScenario2_CV5_NoCollisions()
-    {
-        Debug.Log("=== DEBUG SCENARIO 2: CV=5, NO COLLISIONS ===");
-        var mockBaseline = CreateMockBaselineSession(0); // No collisions
-        var settings = GenerateEnhancementSettings(5, mockBaseline);
-        LogEnhancementDetails(settings, "CV=5, No Collisions");
-        ApplyEnhancements(settings);
-    }
-    
-    [ContextMenu("Debug Scenario 3: CV=7, No Collisions")]
-    public void DebugScenario3_CV7_NoCollisions()
-    {
-        Debug.Log("=== DEBUG SCENARIO 3: CV=7, NO COLLISIONS ===");
-        var mockBaseline = CreateMockBaselineSession(0); // No collisions
-        var settings = GenerateEnhancementSettings(7, mockBaseline);
-        LogEnhancementDetails(settings, "CV=7, No Collisions");
-        ApplyEnhancements(settings);
-    }
-    
-    [ContextMenu("Debug Scenario 4: CV=10, No Collisions")]
-    public void DebugScenario4_CV10_NoCollisions()
-    {
-        Debug.Log("=== DEBUG SCENARIO 4: CV=10, NO COLLISIONS ===");
-        var mockBaseline = CreateMockBaselineSession(0); // No collisions
-        var settings = GenerateEnhancementSettings(10, mockBaseline);
-        LogEnhancementDetails(settings, "CV=10, No Collisions");
-        ApplyEnhancements(settings);
-    }
-    
-    [ContextMenu("Debug Scenario 5: CV=7, Dynamic Object Collisions")]
-    public void DebugScenario5_CV7_DynamicCollisions()
-    {
-        Debug.Log("=== DEBUG SCENARIO 5: CV=7, DYNAMIC OBJECT COLLISIONS ===");
-        var mockBaseline = CreateMockBaselineSession(3, true, false); // 3 dynamic collisions
-        var settings = GenerateEnhancementSettings(7, mockBaseline);
-        LogEnhancementDetails(settings, "CV=7, Dynamic Object Collisions");
-        ApplyEnhancements(settings);
-    }
-    
-    [ContextMenu("Debug Scenario 6: CV=7, Static Object Collisions")]
-    public void DebugScenario6_CV7_StaticCollisions()
-    {
-        Debug.Log("=== DEBUG SCENARIO 6: CV=7, STATIC OBJECT COLLISIONS ===");
-        var mockBaseline = CreateMockBaselineSession(4, false, true); // 4 static collisions
-        var settings = GenerateEnhancementSettings(7, mockBaseline);
-        LogEnhancementDetails(settings, "CV=7, Static Object Collisions");
-        ApplyEnhancements(settings);
-    }
-    
-    NavigationSession CreateMockBaselineSession(int totalCollisions, bool hasDynamicCollisions = false, bool hasStaticCollisions = false)
-    {
-        NavigationSession mockSession = new NavigationSession();
-        mockSession.totalCollisions = totalCollisions;
-        
-        if (totalCollisions > 0)
-        {
-            mockSession.collisionsByObjectType = new System.Collections.Generic.Dictionary<string, int>();
-            
-            if (hasDynamicCollisions)
-            {
-                mockSession.collisionsByObjectType["Car"] = totalCollisions / 2;
-                mockSession.collisionsByObjectType["Bus"] = (totalCollisions + 1) / 2;
-            }
-            
-            if (hasStaticCollisions)
-            {
-                mockSession.collisionsByObjectType["Tree"] = totalCollisions / 2;
-                mockSession.collisionsByObjectType["Pole"] = (totalCollisions + 1) / 2;
-            }
-            
-            if (!hasDynamicCollisions && !hasStaticCollisions)
-            {
-                // Mixed collisions
-                mockSession.collisionsByObjectType["Car"] = totalCollisions / 3;
-                mockSession.collisionsByObjectType["Tree"] = totalCollisions / 3;
-                mockSession.collisionsByObjectType["Wall"] = totalCollisions - (2 * (totalCollisions / 3));
-            }
-        }
-        
-        return mockSession;
-    }
-    
-    void LogEnhancementDetails(VisualEnhancementSettings settings, string scenario)
-    {
-        Debug.Log($"SCENARIO: {scenario}");
-        Debug.Log($"DECISION: {settings.decisionReason}");
-        Debug.Log($"VISION RATING: {settings.centralVisionRating}/10");
-        Debug.Log($"HAD COLLISIONS: {settings.hadCollisions} (Total: {settings.totalCollisions})");
-        Debug.Log($"");
-        
-        Debug.Log($"NAVIGATION LINE SETTINGS:");
-        Debug.Log($"  - Enabled: {settings.enhanceNavigationLine}");
-        Debug.Log($"  - Width: {settings.navigationLineWidth:F3}");
-        Debug.Log($"  - Opacity: {settings.navigationLineOpacity:F0} (Alpha: {settings.navigationLineOpacity/255f:F2})");
-        Debug.Log($"  - Spacing: {settings.navigationLineSpacing:F1}");
-        Debug.Log($"");
-        
-        Debug.Log($"BOUNDING BOX SETTINGS:");
-        Debug.Log($"  - Enabled: {settings.enableBoundingBoxes}");
-        Debug.Log($"  - Width: {settings.boundingBoxLineWidth:F3}");
-        Debug.Log($"  - Opacity: {settings.boundingBoxOpacity:F0} (Alpha: {settings.boundingBoxOpacity/255f:F2})");
-        Debug.Log($"  - Spacing: {settings.boundingBoxSpacing:F1}");
-        Debug.Log($"");
-        
-        Debug.Log($"OBJECT ENHANCEMENT:");
-        Debug.Log($"  - Static Objects: {settings.enhanceStaticObjects}");
-        Debug.Log($"  - Dynamic Objects: {settings.enhanceDynamicObjects}");
-        Debug.Log($"");
-        
-        // Calculate enhancement percentages for easy comparison
-        float navWidthPercent = (settings.navigationLineWidth / navigationLineWidthRange) * 100f;
-        float navOpacityPercent = (settings.navigationLineOpacity / 255f) * 100f;
-        float boxWidthPercent = (settings.boundingBoxLineWidth / boundingBoxWidthRange) * 100f;
-        float boxOpacityPercent = (settings.boundingBoxOpacity / 255f) * 100f;
-        
-        Debug.Log($"ENHANCEMENT INTENSITY (as percentage of maximum):");
-        Debug.Log($"  - Navigation Line Width: {navWidthPercent:F0}%");
-        Debug.Log($"  - Navigation Line Opacity: {navOpacityPercent:F0}%");
-        Debug.Log($"  - Bounding Box Width: {boxWidthPercent:F0}%");
-        Debug.Log($"  - Bounding Box Opacity: {boxOpacityPercent:F0}%");
-        Debug.Log($"================================================");
     }
 }

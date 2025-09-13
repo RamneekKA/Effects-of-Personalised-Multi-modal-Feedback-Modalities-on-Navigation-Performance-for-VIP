@@ -69,7 +69,7 @@ public class ManualEnhancementController : MonoBehaviour
     [Tooltip("Color of the bounding boxes")]
     public Color boundingBoxColor = Color.green;
     
-    [Range(5.0f, 50f)]
+    [Range(5.0f, 35f)]
     [Tooltip("Range to show bounding boxes around objects")]
     public float boundingBoxRange = 15f;
     

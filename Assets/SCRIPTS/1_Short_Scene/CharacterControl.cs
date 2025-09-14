@@ -4,16 +4,13 @@ using UnityEngine;
 using System.IO;
 using System.Linq;
 using UnityEngine.SceneManagement;
-using UnityEngine.XR;
 
 namespace FCG
 {
     /// <summary>
-    /// Updated Character Controller with VR Input Support
-    /// VR controllers replace mouse/WASD - head tracking is passive viewing only
-    /// Left stick: Movement (WASD equivalent)
-    /// Right stick: Body turning (Mouse X equivalent) 
-    /// Head tracking: Looking around only (does NOT move the scene)
+    /// Updated Character Controller with VR Support and Unified Audio System Integration
+    /// VR Mode: Head tracking for looking, left joystick for movement, right joystick for camera rotation
+    /// Traditional Mode: Mouse look + WASD movement
     /// </summary>
     public class CharacterControl : MonoBehaviour
     {
@@ -22,13 +19,14 @@ namespace FCG
         public float sensitivity = 100f;
 
         [Header("VR Settings")]
-        [Tooltip("Separate XR Origin object (NOT a child of this player)")]
-        public Transform xrOrigin;
-        [Tooltip("Turning speed with right joystick (degrees per second)")]
-        public float turnSpeed = 45f;
-        [Tooltip("Dead zone for joystick input")]
-        [Range(0.01f, 0.5f)]
-        public float joystickDeadZone = 0.1f;
+        [Tooltip("Enable VR mode - disables mouse look, enables VR head tracking + controller input")]
+        public bool enableVR = false;
+        
+        [Tooltip("VR Camera Rig (XR Origin or XR Rig)")]
+        public Transform vrCameraRig;
+        
+        [Tooltip("Main VR Camera (usually child of VR rig)")]
+        public Camera vrCamera;
 
         [Header("Human Body Setup")]
         public GameObject humanBodyPrefab;
@@ -78,9 +76,10 @@ namespace FCG
         public LayerMask obstacleLayerMask = 1 << 8;
         public LayerMask ignoreCollisionLayers = 1 << 0 | (1 << 13);
 
-        // Movement and camera - VR MODIFIED
-        private float yRotation = 0f; // Only controlled by joystick now, not head
-        private Transform cam; // Original camera - will be DISABLED for VR
+        // Movement and camera
+        private float xRotation = 0f;
+        private float yRotation = 0f;
+        private Transform cam;
         private CharacterController charController;
         private Vector3 initialPosition = Vector3.zero;
         
@@ -112,25 +111,28 @@ namespace FCG
 
         void Start()
         {
-            // VR: Don't lock cursor - not needed in VR
-            Cursor.lockState = CursorLockMode.None;
+            Cursor.lockState = CursorLockMode.Locked;
 
             charController = GetComponent<CharacterController>();
             
-            // VR Setup: Find XR Origin and disable original camera
-            SetupVRSystem();
-            
-            // Setup human body if enabled
-            if (useHumanBodyCollision && humanBodyPrefab != null)
+            // Setup VR or traditional camera
+            if (enableVR)
             {
-                SetupHumanBodySimple();
+                SetupVR();
             }
-            // NOTE: No else clause for camera setup - VR camera is handled by XR Origin
+            else
+            {
+                SetupTraditionalCamera();
+            }
 
             bodyZoneDetector = gameObject.AddComponent<SimpleBodyZoneDetector>();
             
-            // Initialize player body rotation (NOT camera rotation in VR)
+            // Initialize rotations
             yRotation = transform.eulerAngles.y;
+            xRotation = 0f;
+            
+            if (cam != null && !enableVR)
+                cam.localRotation = Quaternion.identity;
             
             initialPosition = transform.position;
             lastFramePosition = transform.position;
@@ -163,163 +165,94 @@ namespace FCG
                 InitializeStandaloneMode();
             }
 
-            Debug.Log("Character Controller with VR input system initialized");
+            Debug.Log($"Character Controller initialized in {(enableVR ? "VR" : "Traditional")} mode");
         }
 
-        void SetupVRSystem()
+        void SetupVR()
         {
-            // Find XR Origin if not assigned
-            if (xrOrigin == null)
+            Debug.Log("Setting up VR mode");
+            
+            // Find VR components if not assigned
+            if (vrCameraRig == null)
             {
-                GameObject xrOriginGO = GameObject.Find("XR Origin (VR)");
-                if (xrOriginGO != null)
+                // Try to find XR Origin by name (works without package dependency)
+                GameObject xrOrigin = GameObject.Find("XR Origin (VR)") ?? 
+                                     GameObject.Find("XR Origin") ?? 
+                                     GameObject.Find("XR Rig") ??
+                                     GameObject.Find("VR Camera Rig");
+                
+                if (xrOrigin != null)
                 {
-                    xrOrigin = xrOriginGO.transform;
-                    Debug.Log("Found XR Origin automatically");
+                    vrCameraRig = xrOrigin.transform;
+                    Debug.Log($"Found VR rig: {xrOrigin.name}");
                 }
                 else
                 {
-                    Debug.LogError("XR Origin (VR) not found! Please assign it manually.");
+                    Debug.LogError("No VR rig found! Create an XR Origin in your scene first.");
                 }
             }
-
-            // Position XR Origin at player position initially
-            if (xrOrigin != null)
-            {
-                xrOrigin.position = transform.position;
-                xrOrigin.rotation = transform.rotation;
-                Debug.Log("XR Origin synchronized with player position");
-            }
-
-            // Find and DISABLE the original camera to prevent conflicts
-            cam = transform.Find("Camera");
-            if (cam == null)
-            {
-                // Look for camera in children
-                Camera[] childCameras = GetComponentsInChildren<Camera>();
-                if (childCameras.Length > 0)
-                {
-                    cam = childCameras[0].transform;
-                }
-            }
-
-            // Disable original camera - XR Origin handles the camera now
-            if (cam != null)
-            {
-                Camera originalCamera = cam.GetComponent<Camera>();
-                if (originalCamera != null)
-                {
-                    originalCamera.enabled = false;
-                    Debug.Log("Original camera disabled - VR camera will handle display");
-                }
-            }
-
-            Debug.Log("VR System setup complete");
-        }
-
-        void Update()
-        {
-            // Only allow movement and tracking if pre-analysis is done and navigation is enabled
-            if (navigationEnabled && (preAnalysisCompleted || !waitForPreAnalysis || !SessionManager.Instance.IsNavigationTrial(currentTrialType)))
-            {
-                // VR Input - replaces mouse/WASD
-                HandleVRTurning();    // Right stick = Mouse X (body turning)
-                HandleVRMovement();   // Left stick = WASD (movement)
-
-                // Track velocity for collision analysis
-                Vector3 currentVelocity = (transform.position - lastFramePosition) / Time.deltaTime;
-                lastFrameVelocity = currentVelocity;
-
-                // Navigation tracking
-                if (enableTracking)
-                {
-                    UpdateNavigationTracking();
-                }
-
-                // Reset position if player falls
-                if (transform.position.y < -10)
-                {
-                    transform.position = initialPosition;
-                    // Also reset XR Origin
-                    if (xrOrigin != null)
-                    {
-                        xrOrigin.position = initialPosition;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Handle VR controller turning (replaces Mouse X input)
-        /// Right stick horizontal axis turns the player body
-        /// </summary>
-        void HandleVRTurning()
-        {
-            Vector2 rightStick = Vector2.zero;
-            InputDevice rightDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
             
-            if (rightDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out rightStick))
+            if (vrCamera == null && vrCameraRig != null)
             {
-                // Only use horizontal axis for turning, ignore vertical
-                float turnInput = rightStick.x;
+                vrCamera = vrCameraRig.GetComponentInChildren<Camera>();
+            }
+            
+            if (vrCameraRig != null)
+            {
+                // Position VR rig at character position
+                vrCameraRig.position = transform.position;
                 
-                if (Mathf.Abs(turnInput) > joystickDeadZone)
+                // Make VR rig follow character (this is key - head won't move scene!)
+                vrCameraRig.SetParent(transform);
+                vrCameraRig.localPosition = new Vector3(0, cameraHeightOffset, 0);
+                vrCameraRig.localRotation = Quaternion.identity;
+                
+                // Update camera reference for other systems
+                cam = vrCamera?.transform;
+                
+                // Ensure VR camera is main camera
+                if (vrCamera != null)
                 {
-                    // Apply sensitivity and turning speed
-                    float turnAmount = turnInput * turnSpeed * Time.deltaTime;
-                    yRotation += turnAmount;
+                    vrCamera.tag = "MainCamera";
                     
-                    // Rotate the player body
-                    transform.rotation = Quaternion.Euler(0f, yRotation, 0f);
-                    
-                    // Keep XR Origin synchronized with player body rotation
-                    if (xrOrigin != null)
+                    // Disable any existing main cameras
+                    Camera[] allCameras = FindObjectsOfType<Camera>();
+                    foreach (Camera cam in allCameras)
                     {
-                        xrOrigin.rotation = transform.rotation;
+                        if (cam != vrCamera && cam.tag == "MainCamera")
+                        {
+                            cam.gameObject.SetActive(false);
+                            Debug.Log($"Disabled old camera: {cam.name}");
+                        }
                     }
                 }
+                
+                Debug.Log("VR setup complete - head tracking for looking, left stick for movement, right stick for camera rotation");
+                Debug.Log($"VR Rig parented to character - head movement will NOT move the scene");
             }
-        }
-
-        /// <summary>
-        /// Handle VR controller movement (replaces WASD input)
-        /// Left stick controls forward/back/strafe movement
-        /// </summary>
-        void HandleVRMovement()
-        {
-            Vector2 leftStick = Vector2.zero;
-            InputDevice leftDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
-            
-            if (leftDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out leftStick))
+            else
             {
-                // Apply dead zone
-                if (leftStick.magnitude > joystickDeadZone)
-                {
-                    // Use PLAYER transform for movement direction (not head/camera)
-                    // This ensures head movement doesn't affect movement direction
-                    Vector3 moveDirection = (transform.right * leftStick.x) + (transform.forward * leftStick.y);
-                    moveDirection = Vector3.ClampMagnitude(moveDirection, 1.0f);
-
-                    // Check for sprint with left trigger (replaces Left Shift)
-                    bool sprintPressed = false;
-                    leftDevice.TryGetFeatureValue(CommonUsages.triggerButton, out sprintPressed);
-                    
-                    float finalSpeed = sprintPressed ? speed * 1.2f : speed;
-                    
-                    // Move the player with CharacterController
-                    charController.SimpleMove(moveDirection * finalSpeed);
-                    
-                    // Keep XR Origin position synchronized
-                    if (xrOrigin != null)
-                    {
-                        xrOrigin.position = transform.position;
-                    }
-                }
+                Debug.LogError("VR Camera Rig not found! Make sure XR Origin is in the scene.");
+                Debug.LogError("Falling back to traditional camera setup...");
+                enableVR = false;
+                SetupTraditionalCamera();
             }
         }
 
-        // REST OF THE SCRIPT UNCHANGED FROM ORIGINAL
-        // All the session management, audio, collision detection etc. remains the same
+        void SetupTraditionalCamera()
+        {
+            // Setup human body if enabled
+            if (useHumanBodyCollision && humanBodyPrefab != null)
+            {
+                SetupHumanBodySimple();
+            }
+            else
+            {
+                cam = transform.Find("Camera");
+                if (cam == null)
+                    cam = Camera.main?.transform;
+            }
+        }
 
         void SetupAmbientAudio()
         {
@@ -399,7 +332,7 @@ namespace FCG
                 unifiedAudioController.EnableAudioSystem();
             }
             
-            Debug.Log("Running in standalone mode with VR input system");
+            Debug.Log("Running in standalone mode with unified audio system");
         }
 
         bool ShouldWaitForPreAnalysis()
@@ -457,8 +390,8 @@ namespace FCG
                     InitializeUnifiedAudio();
                 }
                 
-                Debug.Log($"VR Navigation enabled for trial: {currentTrialType}");
-                Debug.Log("Use left stick to move, right stick to turn, left trigger to sprint!");
+                Debug.Log($"Navigation enabled for trial: {currentTrialType}");
+                Debug.Log("You can now navigate the route!");
             }
             else
             {
@@ -522,7 +455,7 @@ namespace FCG
 
         void ShowPreAnalysisWaitingMessage()
         {
-            Debug.Log("Scene analysis in progress - VR navigation will begin when complete");
+            Debug.Log("Scene analysis in progress - navigation will begin when complete");
         }
 
         void ConfigureForTrial(string trialType)
@@ -591,8 +524,34 @@ namespace FCG
             string screenshotsPath = Path.Combine(trialDataPath, "Screenshots");
             Directory.CreateDirectory(screenshotsPath);
             
-            Debug.Log($"VR Navigation tracking initialized for {currentTrialType}");
+            Debug.Log($"Navigation tracking initialized for {currentTrialType}");
             Debug.Log($"Data path: {trialDataPath}");
+        }
+
+        void Update()
+        {
+            // Only allow movement and tracking if pre-analysis is done and navigation is enabled
+            if (navigationEnabled && (preAnalysisCompleted || !waitForPreAnalysis || !SessionManager.Instance.IsNavigationTrial(currentTrialType)))
+            {
+                CameraMovement();
+                MoveCharacter();
+
+                // Track velocity for collision analysis
+                Vector3 currentVelocity = (transform.position - lastFramePosition) / Time.deltaTime;
+                lastFrameVelocity = currentVelocity;
+
+                // Navigation tracking
+                if (enableTracking)
+                {
+                    UpdateNavigationTracking();
+                }
+
+                // Reset position if player falls
+                if (transform.position.y < -10)
+                {
+                    transform.position = initialPosition;
+                }
+            }
         }
 
         void UpdateNavigationTracking()
@@ -674,9 +633,10 @@ namespace FCG
                 return;
             }
             
-            // VR: Screenshots will be from the VR camera automatically
+            if (cam == null) return;
+
             screenshotCounter++;
-            string filename = $"vr_screenshot_{screenshotCounter:D4}_{Time.time:F1}s.png";
+            string filename = $"screenshot_{screenshotCounter:D4}_{Time.time:F1}s.png";
             string fullPath = Path.Combine(trialDataPath, "Screenshots", filename);
 
             ScreenCapture.CaptureScreenshot(fullPath);
@@ -686,10 +646,10 @@ namespace FCG
                 navigationData[navigationData.Count - 1].screenshotPath = filename;
             }
 
-            Debug.Log($"VR Screenshot saved: {filename}");
+            Debug.Log($"Screenshot saved: {filename}");
         }
 
-        // Enhanced collision detection (unchanged)
+        // Enhanced collision detection
         void OnControllerColliderHit(ControllerColliderHit hit)
         {
             if (!enableTracking || !navigationEnabled) return;
@@ -750,7 +710,7 @@ namespace FCG
         {
             float collisionSpeed = lastFrameVelocity.magnitude;
             
-            Debug.Log($"VR COLLISION: {bodyPart} hit {objectType} ({objectName}) at {collisionSpeed:F2}m/s");
+            Debug.Log($"COLLISION: {bodyPart} hit {objectType} ({objectName}) at {collisionSpeed:F2}m/s");
 
             NavigationDataPoint collisionData = new NavigationDataPoint
             {
@@ -778,7 +738,7 @@ namespace FCG
         void CaptureCollisionScreenshot()
         {
             screenshotCounter++;
-            string filename = $"vr_collision_{screenshotCounter:D4}_{Time.time:F1}s.png";
+            string filename = $"collision_{screenshotCounter:D4}_{Time.time:F1}s.png";
             string fullPath = Path.Combine(trialDataPath, "Screenshots", filename);
             
             ScreenCapture.CaptureScreenshot(fullPath);
@@ -788,7 +748,7 @@ namespace FCG
                 navigationData[navigationData.Count - 1].screenshotPath = filename;
             }
             
-            Debug.Log($"VR Collision screenshot saved: {filename}");
+            Debug.Log($"Collision screenshot saved: {filename}");
         }
 
         public void CompleteNavigationTrial()
@@ -815,7 +775,7 @@ namespace FCG
             
             SaveNavigationData();
             
-            Debug.Log($"VR Navigation trial '{currentTrialType}' completed");
+            Debug.Log($"Navigation trial '{currentTrialType}' completed");
         }
 
         void SaveNavigationData()
@@ -859,7 +819,7 @@ namespace FCG
 
             NavigationSession session = new NavigationSession
             {
-                sessionID = $"VR_{currentTrialType}_{System.DateTime.Now:yyyyMMdd_HHmmss}",
+                sessionID = $"{currentTrialType}_{System.DateTime.Now:yyyyMMdd_HHmmss}",
                 trialType = currentTrialType,
                 routeType = SessionManager.Instance.GetRouteType(currentTrialType),
                 startTime = startTime,
@@ -882,7 +842,7 @@ namespace FCG
             string json = JsonUtility.ToJson(session, true);
             File.WriteAllText(jsonPath, json);
 
-            Debug.Log($"VR Navigation data saved: {navigationData.Count} data points to {jsonPath}");
+            Debug.Log($"Navigation data saved: {navigationData.Count} data points to {jsonPath}");
             
             // Update session results
             UpdateSessionResults(session);
@@ -937,7 +897,7 @@ namespace FCG
             SessionManager.Instance.SaveSessionData();
         }
 
-        // Ambient Audio Methods (unchanged)
+        // Ambient Audio Methods
         public void StartAmbientAudio()
         {
             if (ambientAudioSource == null || ambientNavigationClip == null)
@@ -1025,7 +985,7 @@ namespace FCG
             audioFadeCoroutine = null;
         }
 
-        // Helper methods (unchanged)
+        // Helper methods
         string GetObjectTypeFromNameAndLayer(GameObject obj)
         {
             string classification = GetObjectTypeFromName(obj.name);
@@ -1099,100 +1059,209 @@ namespace FCG
             return cleaned;
         }
 
-        // Camera and movement methods - VR VERSIONS ONLY
+        // Camera and movement methods
+        void CameraMovement()
+        {
+            if (enableVR)
+            {
+                // Try direct XR device input for right controller (camera rotation)
+                var rightDevices = new List<UnityEngine.XR.InputDevice>();
+                UnityEngine.XR.InputDevices.GetDevicesAtXRNode(UnityEngine.XR.XRNode.RightHand, rightDevices);
+                
+                float controllerX = 0f, controllerY = 0f;
+                bool vrInputDetected = false;
+                
+                if (rightDevices.Count > 0)
+                {
+                    Vector2 primary2D;
+                    if (rightDevices[0].TryGetFeatureValue(UnityEngine.XR.CommonUsages.primary2DAxis, out primary2D))
+                    {
+                        controllerX = primary2D.x;
+                        controllerY = primary2D.y;
+                        vrInputDetected = true;
+                        
+                        // Debug output to verify input
+                        if (Mathf.Abs(controllerX) > 0.1f || Mathf.Abs(controllerY) > 0.1f)
+                        {
+                            Debug.Log($"VR Right Controller Camera: X={controllerX:F2}, Y={controllerY:F2}");
+                        }
+                    }
+                }
+                
+                // Apply controller input like mouse input
+                yRotation += controllerX * sensitivity * Time.deltaTime;
+                xRotation -= controllerY * sensitivity * Time.deltaTime;
+                xRotation = Mathf.Clamp(xRotation, -90f, 90f);
+
+                // Apply rotations to the character controller (this moves the scene, not just the camera)
+                transform.rotation = Quaternion.Euler(0f, yRotation, 0f);
+                
+                // Apply vertical rotation to camera if available
+                if (cam != null)
+                    cam.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+            }
+            else
+            {
+                // Traditional mouse look
+#if ENABLE_LEGACY_INPUT_MANAGER
+                float mouseX = Input.GetAxisRaw("Mouse X") * sensitivity * Time.deltaTime;
+                float mouseY = Input.GetAxisRaw("Mouse Y") * sensitivity * Time.deltaTime;
+
+                yRotation += mouseX;
+                xRotation -= mouseY;
+                xRotation = Mathf.Clamp(xRotation, -90f, 90f);
+
+                if (cam != null)
+                    cam.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+                transform.rotation = Quaternion.Euler(0f, yRotation, 0f);
+#endif
+            }
+        }
+
+        void MoveCharacter()
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            float moveX, moveZ;
+            
+            if (enableVR)
+            {
+                // Use LEFT controller for movement, RIGHT for camera rotation
+                moveX = GetSafeAxisInput("XRI_Left_Primary2DAxis_Horizontal");
+                moveZ = GetSafeAxisInput("XRI_Left_Primary2DAxis_Vertical");
+                
+                // Fallback to keyboard if no VR input
+                if (Mathf.Abs(moveX) < 0.1f && Mathf.Abs(moveZ) < 0.1f)
+                {
+                    moveX = Input.GetAxis("Horizontal");
+                    moveZ = Input.GetAxis("Vertical");
+                }
+            }
+            else
+            {
+                // Traditional keyboard input
+                moveX = Input.GetAxis("Horizontal");
+                moveZ = Input.GetAxis("Vertical");
+            }
+
+            Vector3 moveDirection = (transform.right * moveX) + (transform.forward * moveZ);
+            moveDirection = Vector3.ClampMagnitude(moveDirection, 1.0f);
+
+            float finalSpeed = speed;
+            
+            // VR or keyboard speed boost
+            if (enableVR)
+            {
+                // Check for VR speed button or fallback to keyboard
+                if (GetSafeButtonInput("XRI_Left_GripButton") || Input.GetKey(KeyCode.LeftShift))
+                {
+                    finalSpeed *= 1.2f;
+                }
+            }
+            else if (Input.GetKey(KeyCode.LeftShift))
+            {
+                finalSpeed *= 1.2f;
+            }
+            
+            charController.SimpleMove(moveDirection * finalSpeed);
+#endif
+        }
+
+        // Safe input methods that won't throw errors if axes don't exist
+        float GetSafeAxisInput(string axisName)
+        {
+            try
+            {
+                return Input.GetAxis(axisName);
+            }
+            catch (System.ArgumentException)
+            {
+                // Axis doesn't exist, return 0
+                return 0f;
+            }
+        }
+
+        bool GetSafeButtonInput(string buttonName)
+        {
+            try
+            {
+                return Input.GetButton(buttonName);
+            }
+            catch (System.ArgumentException)
+            {
+                // Button doesn't exist, return false
+                return false;
+            }
+        }
+
         void SetupHumanBodySimple()
         {
             humanBodyInstance = Instantiate(humanBodyPrefab, transform);
             humanBodyInstance.name = "HumanBody";
             humanBodyInstance.transform.localPosition = new Vector3(0, -1.0f, 0);
             humanBodyInstance.transform.localRotation = Quaternion.identity;
-            
-            // NO camera setup - XR Origin handles the camera
-            Debug.Log("Human body visual setup complete (VR mode - no camera attachment)");
+            SetupCameraOnHead();
+            Debug.Log("Human body visual setup complete");
         }
 
-        // Context menu methods for testing
-        [ContextMenu("Test: VR Controller Input")]
-        public void TestVRInput()
+        void SetupCameraOnHead()
         {
-            Debug.Log("=== VR CONTROLLER INPUT TEST ===");
+            Transform headTransform = FindHeadBone(humanBodyInstance.transform);
             
-            // Test left controller (movement)
-            InputDevice leftDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
-            Vector2 leftStick;
-            bool leftTrigger;
-            bool leftValid = leftDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out leftStick);
-            leftDevice.TryGetFeatureValue(CommonUsages.triggerButton, out leftTrigger);
-            
-            Debug.Log($"Left Controller: Valid={leftValid}, Stick={leftStick}, Trigger={leftTrigger}");
-            
-            // Test right controller (turning)
-            InputDevice rightDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
-            Vector2 rightStick;
-            bool rightValid = rightDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out rightStick);
-            
-            Debug.Log($"Right Controller: Valid={rightValid}, Stick={rightStick}");
-            
-            // Test XR Origin sync
-            if (xrOrigin != null)
+            if (headTransform != null)
             {
-                Debug.Log($"XR Origin Position: {xrOrigin.position}");
-                Debug.Log($"Player Position: {transform.position}");
-                Debug.Log($"Position Synced: {Vector3.Distance(xrOrigin.position, transform.position) < 0.1f}");
+                GameObject cameraObj = new GameObject("Camera");
+                cameraObj.transform.SetParent(headTransform);
+                cameraObj.transform.localPosition = Vector3.zero;
+                cameraObj.transform.localRotation = Quaternion.identity;
+                
+                Camera cameraComponent = cameraObj.AddComponent<Camera>();
+                cameraComponent.tag = "MainCamera";
+                
+                cam = cameraObj.transform;
+                Debug.Log($"Camera attached to head bone: {headTransform.name}");
             }
             else
             {
-                Debug.LogError("XR Origin not assigned!");
+                GameObject cameraObj = new GameObject("Camera");
+                cameraObj.transform.SetParent(humanBodyInstance.transform);
+                cameraObj.transform.localPosition = new Vector3(0, cameraHeightOffset, 0);
+                cameraObj.transform.localRotation = Quaternion.identity;
+                
+                Camera cameraComponent = cameraObj.AddComponent<Camera>();
+                cameraComponent.tag = "MainCamera";
+                
+                cam = cameraObj.transform;
+                Debug.Log($"Camera positioned at estimated head height: {cameraHeightOffset}m");
             }
         }
 
-        [ContextMenu("Manual: Complete Current VR Navigation Trial")]
-        public void ManualCompleteNavigationTrial()
+        Transform FindHeadBone(Transform parent)
         {
-            CompleteNavigationTrial();
-        }
-
-        [ContextMenu("Test: Start Ambient Audio")]
-        public void TestStartAmbientAudio()
-        {
-            StartAmbientAudio();
-        }
-
-        [ContextMenu("Test: Stop Ambient Audio")]
-        public void TestStopAmbientAudio()
-        {
-            StopAmbientAudio();
-        }
-        
-        [ContextMenu("Test: Initialize Unified Audio")]
-        public void TestInitializeUnifiedAudio()
-        {
-            InitializeUnifiedAudio();
-        }
-
-        [ContextMenu("Debug: VR System Status")]
-        public void DebugVRSystemStatus()
-        {
-            Debug.Log("VR SYSTEM STATUS:");
-            Debug.Log($"XR Origin Assigned: {(xrOrigin != null ? "YES" : "NO")}");
-            if (xrOrigin != null)
+            string[] headBoneNames = { "Head", "head", "bip_Head", "mixamorig:Head", "Bip01 Head", "Armature_Head" };
+            
+            foreach (string boneName in headBoneNames)
             {
-                Debug.Log($"XR Origin Position: {xrOrigin.position}");
-                Debug.Log($"XR Origin Rotation: {xrOrigin.rotation.eulerAngles}");
+                Transform found = FindChildRecursive(parent, boneName);
+                if (found != null)
+                    return found;
             }
             
-            Debug.Log($"Player Position: {transform.position}");
-            Debug.Log($"Player Rotation: {transform.rotation.eulerAngles}");
-            Debug.Log($"Original Camera: {(cam != null ? "FOUND" : "MISSING")}");
-            
-            if (cam != null)
+            return null;
+        }
+
+        Transform FindChildRecursive(Transform parent, string name)
+        {
+            if (parent.name == name)
+                return parent;
+                
+            foreach (Transform child in parent)
             {
-                Camera originalCam = cam.GetComponent<Camera>();
-                Debug.Log($"Original Camera Enabled: {(originalCam != null ? originalCam.enabled.ToString() : "NO CAMERA COMPONENT")}");
+                Transform found = FindChildRecursive(child, name);
+                if (found != null)
+                    return found;
             }
             
-            Debug.Log($"Navigation Enabled: {navigationEnabled}");
-            Debug.Log($"Current Trial: {currentTrialType}");
+            return null;
         }
 
         void OnDestroy()
@@ -1222,6 +1291,115 @@ namespace FCG
             {
                 SaveNavigationData();
             }
+        }
+
+        // Context menu methods for testing
+        [ContextMenu("Complete Current Navigation Trial")]
+        public void ManualCompleteNavigationTrial()
+        {
+            CompleteNavigationTrial();
+        }
+
+        [ContextMenu("Test: Start Ambient Audio")]
+        public void TestStartAmbientAudio()
+        {
+            StartAmbientAudio();
+        }
+
+        [ContextMenu("Test: Stop Ambient Audio")]
+        public void TestStopAmbientAudio()
+        {
+            StopAmbientAudio();
+        }
+        
+        [ContextMenu("Test: Initialize Unified Audio")]
+        public void TestInitializeUnifiedAudio()
+        {
+            InitializeUnifiedAudio();
+        }
+
+        [ContextMenu("Debug: Unified Audio Status")]
+        public void DebugUnifiedAudioStatus()
+        {
+            Debug.Log("UNIFIED AUDIO STATUS:");
+            Debug.Log($"Unified Audio Controller: {(unifiedAudioController != null ? "FOUND" : "MISSING")}");
+            Debug.Log($"Audio Enhancements Enabled: {enableAudioEnhancements}");
+            Debug.Log($"Navigation Enabled: {navigationEnabled}");
+            Debug.Log($"Current Trial: {currentTrialType}");
+            Debug.Log($"Is Audio Enhanced Trial: {IsAudioEnhancedTrial(currentTrialType)}");
+            
+            if (unifiedAudioController != null)
+            {
+                Debug.Log($"Audio System Active: {unifiedAudioController.IsSystemActive()}");
+                Debug.Log($"Audio Mode: {unifiedAudioController.GetCurrentAudioMode()}");
+                Debug.Log($"Vision Score: {unifiedAudioController.GetCentralVisionScore()}/10");
+                Debug.Log($"Clarity Distance: {unifiedAudioController.GetObjectClarityDistance()}m");
+            }
+        }
+
+        [ContextMenu("Debug: VR Status")]
+        public void DebugVRStatus()
+        {
+            Debug.Log("VR SETUP STATUS:");
+            Debug.Log($"VR Enabled: {enableVR}");
+            Debug.Log($"VR Camera Rig: {(vrCameraRig != null ? vrCameraRig.name : "MISSING")}");
+            Debug.Log($"VR Camera: {(vrCamera != null ? vrCamera.name : "MISSING")}");
+            Debug.Log($"Current Camera Reference: {(cam != null ? cam.name : "MISSING")}");
+            
+            if (enableVR && vrCameraRig != null)
+            {
+                Debug.Log($"VR Rig Position: {vrCameraRig.position}");
+                Debug.Log($"VR Rig Local Position: {vrCameraRig.localPosition}");
+                Debug.Log($"VR Rig Parent: {(vrCameraRig.parent != null ? vrCameraRig.parent.name : "None")}");
+                Debug.Log("HEAD MOVEMENT WILL NOT MOVE SCENE - Rig is parented to character");
+            }
+        }
+
+        [ContextMenu("Test: Toggle VR Mode")]
+        public void TestToggleVRMode()
+        {
+            enableVR = !enableVR;
+            Debug.Log($"VR Mode toggled to: {enableVR}");
+            Debug.Log("Note: You may need to restart the scene for full VR setup");
+        }
+
+        [ContextMenu("Debug: Audio Status")]
+        public void DebugAudioStatus()
+        {
+            Debug.Log("AMBIENT AUDIO STATUS:");
+            Debug.Log($"Audio Source: {(ambientAudioSource != null ? "FOUND" : "MISSING")}");
+            Debug.Log($"Audio Clip: {(ambientNavigationClip != null ? ambientNavigationClip.name : "MISSING")}");
+            Debug.Log($"Is Playing: {isAudioPlaying}");
+            Debug.Log($"Current Volume: {(ambientAudioSource != null ? ambientAudioSource.volume : 0f)}");
+            Debug.Log($"Target Volume: {ambientVolume}");
+            Debug.Log($"Navigation Enabled: {navigationEnabled}");
+            Debug.Log($"Current Trial: {currentTrialType}");
+        }
+
+        [ContextMenu("Debug: Show Current Trial Info")]
+        public void DebugShowTrialInfo()
+        {
+            Debug.Log($"Current Trial: {currentTrialType}");
+            Debug.Log($"Data Path: {trialDataPath}");
+            Debug.Log($"Navigation Enabled: {navigationEnabled}");
+            Debug.Log($"Tracking Enabled: {enableTracking}");
+            Debug.Log($"Pre-Analysis Complete: {preAnalysisCompleted}");
+            Debug.Log($"Data Points: {navigationData.Count}");
+        }
+
+        [ContextMenu("Debug: Pre-Analysis Status")]
+        public void DebugPreAnalysisStatus()
+        {
+            Debug.Log($"PRE-ANALYSIS STATUS:");
+            Debug.Log($"Wait for pre-analysis: {waitForPreAnalysis}");
+            Debug.Log($"Pre-analysis completed: {preAnalysisCompleted}");
+            Debug.Log($"Gemini analyzer found: {geminiPreAnalyzer != null}");
+            if (geminiPreAnalyzer != null)
+            {
+                Debug.Log($"Analysis in progress: {geminiPreAnalyzer.IsAnalysisInProgress()}");
+                Debug.Log($"Analysis completed: {geminiPreAnalyzer.IsAnalysisCompleted()}");
+            }
+            Debug.Log($"Should wait: {ShouldWaitForPreAnalysis()}");
         }
     }
 }

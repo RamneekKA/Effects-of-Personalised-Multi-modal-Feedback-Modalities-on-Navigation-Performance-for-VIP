@@ -4,10 +4,7 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 
-/// <summary>
-/// Simplified conversational UI - clean, reliable, and easy to maintain
-/// Updated to display new enhancement modalities with EnhancementAssessmentResults
-/// </summary>
+
 public class ConversationalUI : MonoBehaviour
 {
     [Header("UI Settings")]

@@ -5,7 +5,7 @@ using System.Text;
 using System.Linq;
 
 /// <summary>
-/// COMPLETE VERSION: Enhanced Scene Analysis Capture with robust duplicate prevention
+/// Enhanced Scene Analysis Capture with robust duplicate prevention
 /// Uses position + name based deduplication to prevent counting objects multiple times
 /// </summary>
 public class SceneAnalysisCapture : MonoBehaviour

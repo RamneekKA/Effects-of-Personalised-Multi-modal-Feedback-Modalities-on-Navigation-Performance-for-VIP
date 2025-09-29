@@ -8,8 +8,7 @@ using System.Linq;
 /// <summary>
 /// Manual Enhancement Controller for LLM Trials
 /// Provides inspector-based manual control of all enhancements during short_llm and long_llm trials
-/// Now automatically loads and applies LLM assessment decisions for LLM trials
-/// All settings are contained in this single GameObject for easy access
+/// Automatically loads and applies LLM assessment decisions for LLM trials
 /// </summary>
 public class ManualEnhancementController : MonoBehaviour
 {
@@ -917,7 +916,6 @@ public class ManualEnhancementController : MonoBehaviour
     
     void OnDestroy()
     {
-        // Clean up event subscriptions
         if (SessionManager.Instance != null)
         {
             SessionManager.OnTrialChanged -= OnTrialChanged;

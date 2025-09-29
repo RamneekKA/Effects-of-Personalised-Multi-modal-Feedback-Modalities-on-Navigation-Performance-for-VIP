@@ -6,7 +6,6 @@ using System.Linq;
 
 /// <summary>
 /// Unified Enhancement Controller - Single point of control for visual enhancements
-/// UPDATED: Added reliable avoidance distance-based bounding box range calculation
 /// Handles both bounding boxes and navigation line enhancements
 /// Only applies enhancements to short_algorithmic and long_algorithmic trials
 /// </summary>
@@ -232,9 +231,7 @@ public class UnifiedEnhancementController : MonoBehaviour
         return null;
     }
     
-    /// <summary>
-    /// UPDATED: Generate enhancement settings with reliable avoidance distance-based bounding box range
-    /// </summary>
+
     VisualEnhancementSettings GenerateEnhancementSettings(int visionRating, NavigationSession baselineSession, AlgorithmicAssessmentResults assessmentResults)
     {
         VisualEnhancementSettings settings = new VisualEnhancementSettings();
@@ -288,10 +285,7 @@ public class UnifiedEnhancementController : MonoBehaviour
         return settings;
     }
     
-    /// <summary>
-    /// NEW: Calculate bounding box range based on reliable avoidance distance
-    /// Uses the specified ranges based on user's self-reported avoidance capability
-    /// </summary>
+
     private float CalculateAvoidanceBasedRange(float avoidanceDistance)
     {
         // Apply the specified ranges based on avoidance distance

@@ -384,7 +384,7 @@ namespace FCG
                     StartAmbientAudio();
                 }
                 
-                // Initialize unified audio system for navigation trials
+                // Initialise unified audio system for navigation trials
                 if (enableAudioEnhancements)
                 {
                     InitializeUnifiedAudio();
@@ -1402,4 +1402,5 @@ namespace FCG
             Debug.Log($"Should wait: {ShouldWaitForPreAnalysis()}");
         }
     }
+
 }

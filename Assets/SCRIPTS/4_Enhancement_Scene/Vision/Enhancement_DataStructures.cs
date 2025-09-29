@@ -4,12 +4,10 @@ using UnityEngine;
 /// <summary>
 /// Data structures for the enhancement system
 /// Contains all the classes needed by UnifiedEnhancementController and SimplifiedVisualEnhancementManager
-/// UPDATED: Added boundingBoxRange and reliableAvoidanceDistance fields for complete enhancement logging
 /// </summary>
 
 /// <summary>
 /// Visual Enhancement Settings Data Structure
-/// UPDATED: Added bounding box range and reliable avoidance distance tracking
 /// </summary>
 [System.Serializable]
 public class VisualEnhancementSettings
@@ -19,7 +17,7 @@ public class VisualEnhancementSettings
     public float boundingBoxLineWidth = 0.05f;
     public float boundingBoxOpacity = 200f; // Alpha value 0-255
     public float boundingBoxSpacing = 1.0f;
-    public float boundingBoxRange = 25f; // NEW: Detection range for bounding boxes
+    public float boundingBoxRange = 25f; /
     
     [Header("Navigation Line Settings")]
     public bool enhanceNavigationLine = false;
@@ -34,7 +32,7 @@ public class VisualEnhancementSettings
     [Header("Decision Info")]
     public string decisionReason = "";
     public int centralVisionRating = 0;
-    public float reliableAvoidanceDistance = 0f; // NEW: From algorithmic assessment Question 5
+    public float reliableAvoidanceDistance = 0f; 
     public bool hadCollisions = false;
     public int totalCollisions = 0;
 }
@@ -122,14 +120,11 @@ public class HapticIntensityRange
 /// <summary>
 /// Simplified Visual Enhancement Generator
 /// Handles enhancement decision logic without the complexity of the original
-/// UPDATED: Added support for reliable avoidance distance-based range calculation
 /// </summary>
 [System.Serializable]
 public class SimpleEnhancementGenerator
 {
-    /// <summary>
-    /// UPDATED: Generate enhancements with avoidance-based bounding box range calculation
-    /// </summary>
+
     public static VisualEnhancementSettings GenerateEnhancements(int visionRating, NavigationSession baselineSession, 
         float reliableAvoidanceDistance = 2.5f, int poorVisionThreshold = 3)
     {
@@ -201,10 +196,7 @@ public class SimpleEnhancementGenerator
         return settings;
     }
     
-    /// <summary>
-    /// NEW: Calculate bounding box range based on reliable avoidance distance
-    /// Matches the logic from UnifiedEnhancementController
-    /// </summary>
+
     private static float CalculateAvoidanceBasedRange(float avoidanceDistance)
     {
         // Apply the specified ranges based on avoidance distance

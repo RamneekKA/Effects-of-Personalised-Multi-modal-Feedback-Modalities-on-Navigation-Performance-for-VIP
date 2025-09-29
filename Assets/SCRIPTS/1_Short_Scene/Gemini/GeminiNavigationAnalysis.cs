@@ -8,14 +8,12 @@ using System;
 using System.Linq;
 
 /// <summary>
-/// CLEANED VERSION: Updated to work with new NavigationSession structure
-/// Analyzes navigation sessions from the new 5-trial pipeline
-/// CLEANED: Removed references to old AppliedEnhancements system
+/// Analyzes navigation sessions from the 5-trial pipeline
 /// </summary>
 public class GeminiNavigationAnalyzer : MonoBehaviour
 {
     [Header("Gemini API Settings")]
-    public string geminiApiKey = "AIzaSyDBI39ajifrB_GqCfeWIG1RBt9KEzVfuU4";
+    public string geminiApiKey = "";
     public string geminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
     
     [Header("Analysis Settings")]
@@ -713,8 +711,6 @@ Provide your analysis in a structured format with specific evidence from the dat
                 Debug.Log($"🔍📄 Analysis saved to: {analysisPath}");
                 Debug.Log($"🔍✅ Analysis preview: {analysisText.Substring(0, Mathf.Min(200, analysisText.Length))}...");
                 
-                // TODO: Parse the analysis and feed back into VisualAssessmentChat
-                // You could trigger assessment questions based on the analysis results
             }
         }
         catch (Exception e)

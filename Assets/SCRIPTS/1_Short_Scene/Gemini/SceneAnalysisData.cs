@@ -3,7 +3,6 @@ using UnityEngine;
 
 /// <summary>
 /// Data structures for comprehensive scene analysis before user navigation
-/// Updated: Removed player spawn area analysis, focuses on route-based analysis only
 /// </summary>
 
 [System.Serializable]
@@ -12,7 +11,6 @@ public class SceneAnalysisData
     [Header("Player Reference Information")]
     public Vector3 playerSpawnPosition;
     public Vector3 playerSpawnRotation;
-    // REMOVED: spawnAreaDescription - no longer analyzing area around spawn
     
     [Header("Route Information")]
     public Vector3 routeStartPoint;

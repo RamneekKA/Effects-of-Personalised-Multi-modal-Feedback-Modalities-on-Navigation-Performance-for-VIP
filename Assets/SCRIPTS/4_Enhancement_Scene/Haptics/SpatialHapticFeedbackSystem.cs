@@ -8,7 +8,6 @@ using System.Linq;
 /// Spatial Haptic Feedback System for Navigation
 /// Provides directional haptic feedback for up to 2 closest objects from different directions
 /// Uses assessment scores to cap intensity ranges
-/// UPDATED: Added manual control methods for LLM trials
 /// </summary>
 public class SpatialHapticController : MonoBehaviour
 {
@@ -508,9 +507,6 @@ public class SpatialHapticController : MonoBehaviour
     {
         float intervalToUse = minimumHapticGap;
         
-        // If using custom settings, we could check for the most recent event's custom interval
-        // For now, we'll use the global minimumHapticGap
-        
         return Time.time - lastHapticTime >= intervalToUse;
     }
     
@@ -659,11 +655,7 @@ public class SpatialHapticController : MonoBehaviour
         return distance;
     }
     
-    // MANUAL CONTROL METHODS
-    
-    /// <summary>
-    /// Set custom intensity range for a specific haptic event
-    /// </summary>
+
     public void SetEventIntensityRange(string eventName, float minIntensity, float maxIntensity)
     {
         customMinIntensities[eventName] = Mathf.Clamp01(minIntensity);
@@ -675,10 +667,7 @@ public class SpatialHapticController : MonoBehaviour
             Debug.Log($"Set custom intensity for {eventName}: {minIntensity:F2} - {maxIntensity:F2}");
         }
     }
-    
-    /// <summary>
-    /// Set custom feedback interval for a specific haptic event
-    /// </summary>
+
     public void SetEventFeedbackInterval(string eventName, float interval)
     {
         customFeedbackIntervals[eventName] = Mathf.Clamp(interval, 0.5f, 5f);
@@ -690,18 +679,14 @@ public class SpatialHapticController : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Enable custom manual settings mode
-    /// </summary>
+
     public void EnableCustomSettings()
     {
         useCustomSettings = true;
         Debug.Log("SpatialHapticController: Custom settings enabled");
     }
     
-    /// <summary>
-    /// Disable custom settings and revert to assessment-based
-    /// </summary>
+
     public void DisableCustomSettings()
     {
         useCustomSettings = false;
@@ -710,10 +695,7 @@ public class SpatialHapticController : MonoBehaviour
         customFeedbackIntervals.Clear();
         Debug.Log("SpatialHapticController: Custom settings disabled - reverted to assessment-based");
     }
-    
-    /// <summary>
-    /// Clear all custom settings for a fresh start
-    /// </summary>
+
     public void ClearCustomSettings()
     {
         customMinIntensities.Clear();
@@ -773,9 +755,7 @@ public class SpatialHapticController : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Set the maximum number of haptic objects to provide feedback for
-    /// </summary>
+ 
     public void SetMaxHapticObjects(int maxObjects)
     {
         maxHapticObjects = Mathf.Clamp(maxObjects, 1, 3);

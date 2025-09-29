@@ -1,10 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// New enhancement data structure to avoid conflicts with existing AppliedEnhancements
-/// Create this as a separate file: Assets/SCRIPTS/3_LLM_Assesssment/NewEnhancementData.cs
-/// </summary>
 [System.Serializable]
 public class EnhancementConfiguration
 {

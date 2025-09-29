@@ -9,12 +9,11 @@ using System.Linq;
 
 /// <summary>
 /// Real-time LLM Conversational Assessment System
-/// Updated with new enhancement modality options using EnhancementConfiguration
 /// </summary>
 public class GeminiConversationalAssessment : MonoBehaviour
 {
     [Header("Gemini API Settings")]
-    public string geminiApiKey = "AIzaSyDBI39ajifrB_GqCfeWIG1RBt9KEzVfuU4";
+    public string geminiApiKey = "";
     public string geminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
     
     [Header("Assessment Limits")]
@@ -490,7 +489,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("QUESTION: [Your question here]");
         promptBuilder.AppendLine();
         
-        // MODIFY THE FINISH CONDITION:
         if (questionCount >= minQuestions)
         {
             promptBuilder.AppendLine("If you have enough information to make decisions, respond with:");
@@ -559,7 +557,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
                 
                 Debug.Log($"AI Response: {responseText}");
                 
-                // CHECK MINIMUM BEFORE ALLOWING FINISH:
                 if (responseText.ToUpper().Contains("ENOUGH_INFO:"))
                 {
                     if (questionCount >= minQuestions)
@@ -800,7 +797,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("   - Can be disabled if physical vibrations would be uncomfortable or distracting");
         promptBuilder.AppendLine();
         
-        // CRITICAL: Add the anti-copying instructions (Option 3)
+        // Add the anti-copying instructions (Option 3)
         promptBuilder.AppendLine("CRITICAL INSTRUCTIONS:");
         promptBuilder.AppendLine("Do NOT copy any placeholder or example values. You must analyze the conversation and navigation data to determine appropriate settings for THIS specific person. Using generic or placeholder values will result in poor assistance for the user.");
         promptBuilder.AppendLine();
@@ -811,7 +808,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
         promptBuilder.AppendLine("4. Choose values that match THEIR needs, not generic defaults.");
         promptBuilder.AppendLine();
         
-        // Updated response format with placeholders (Option 1)
         promptBuilder.AppendLine("RESPONSE FORMAT - Use this exact structure with YOUR calculated values:");
         promptBuilder.AppendLine("VISUAL_ENABLED: [YES or NO based on your analysis]");
         promptBuilder.AppendLine("NAV_LINE_WIDTH: [your chosen value between 0.2-0.6]");
@@ -1108,7 +1104,6 @@ public class GeminiConversationalAssessment : MonoBehaviour
             Debug.Log($"Reasoning saved to: {reasoningPath}");
             
             UserSession session = SessionManager.Instance.GetCurrentSession();
-            // Note: You may need to add enhancementResults field to UserSession or adapt this
             SessionManager.Instance.SaveSessionData();
         }
     }
@@ -1156,9 +1151,7 @@ public class GeminiConversationalAssessment : MonoBehaviour
     }
 }
 
-/// <summary>
-/// New results structure to avoid conflicts
-/// </summary>
+
 [System.Serializable]
 public class EnhancementAssessmentResults
 {

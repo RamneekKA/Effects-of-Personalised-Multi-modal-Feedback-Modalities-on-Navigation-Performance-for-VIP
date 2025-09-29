@@ -3,7 +3,6 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Scene controller for the LLM Conversational Assessment scene
-/// Updated to work with new EnhancementAssessmentResults data structure
 /// </summary>
 public class LLMAssessmentSceneController : MonoBehaviour
 {
@@ -80,7 +79,6 @@ public class LLMAssessmentSceneController : MonoBehaviour
         // through its Start() method
     }
     
-    // UPDATED: Changed parameter type from LLMAssessmentResults to EnhancementAssessmentResults
     void OnAssessmentCompleted(EnhancementAssessmentResults results)
     {
         Debug.Log("LLM Assessment completed successfully!");
@@ -270,7 +268,6 @@ public class LLMAssessmentSceneController : MonoBehaviour
     
     void OnDestroy()
     {
-        // Clean up event subscriptions - UPDATED to use new event type
         GeminiConversationalAssessment.OnAssessmentCompleted -= OnAssessmentCompleted;
     }
     

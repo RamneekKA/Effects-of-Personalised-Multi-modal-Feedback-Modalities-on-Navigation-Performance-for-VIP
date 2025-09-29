@@ -3,8 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Updated data structures for the full 5-trial pipeline
-/// CLEANED: Removed old AppliedEnhancements system
-/// Now uses specialized controllers for enhancements
+/// Uses controllers for enhancements
 /// </summary>
 
 [System.Serializable]

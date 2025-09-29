@@ -2,7 +2,6 @@ using UnityEngine;
 
 /// <summary>
 /// Simple body zone detection using basic collision and body proportions
-/// Much simpler than mesh-based collision detection
 /// </summary>
 public class SimpleBodyZoneDetector : MonoBehaviour
 {

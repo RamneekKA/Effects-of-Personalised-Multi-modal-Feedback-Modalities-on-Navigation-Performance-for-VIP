@@ -6,7 +6,6 @@ using UnityEngine.SceneManagement;
 using System.Linq;
 
 /// <summary>
-/// Simplified Session Manager with Cross-Platform Data Storage
 /// Automatically handles Mac/Windows/Linux file path differences
 /// Uses Documents folder on all platforms for easy access and no permission issues
 /// </summary>

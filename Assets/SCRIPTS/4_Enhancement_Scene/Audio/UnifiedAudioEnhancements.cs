@@ -8,7 +8,6 @@ using System.Linq;
 /// Score 1-3: Full TTS speech with direction and object type
 /// Score 4-6: Spearcons (pre-recorded audio files) for all nearby objects
 /// Score 7-10: Spearcons only for objects beyond clarity distance (where vision becomes unclear)
-/// UPDATED: Now supports manual override for LLM trials
 /// </summary>
 public class UnifiedAudioController : MonoBehaviour
 {
@@ -432,11 +431,7 @@ public class UnifiedAudioController : MonoBehaviour
         Debug.Log($"=== AUDIO SYSTEM STARTUP COMPLETE ===");
     }
     
-    // NEW MANUAL CONTROL METHODS
-    
-    /// <summary>
-    /// Enable manual control mode - bypasses assessment checks and trial restrictions
-    /// </summary>
+
     public void EnableManualMode()
     {
         allowManualOverride = true;
@@ -444,9 +439,7 @@ public class UnifiedAudioController : MonoBehaviour
         Debug.Log("UnifiedAudioController: Manual mode enabled - assessment checks bypassed");
     }
     
-    /// <summary>
-    /// Disable manual control mode - restores automatic behavior
-    /// </summary>
+
     public void DisableManualMode()
     {
         allowManualOverride = false;
@@ -454,10 +447,7 @@ public class UnifiedAudioController : MonoBehaviour
         StopAllAudio();
         Debug.Log("UnifiedAudioController: Manual mode disabled - restored automatic behavior");
     }
-    
-    /// <summary>
-    /// Force a specific audio mode (for manual control)
-    /// </summary>
+
     public void ForceAudioMode(AudioMode mode)
     {
         if (!allowManualOverride)
@@ -497,9 +487,7 @@ public class UnifiedAudioController : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Set object clarity distance for manual control
-    /// </summary>
+
     public void SetObjectClarityDistance(float distance)
     {
         objectClarityDistance = Mathf.Clamp(distance, 1f, 50f);
@@ -1289,7 +1277,6 @@ public class UnifiedAudioController : MonoBehaviour
     
     void Update()
     {
-        // Clean up finished audio sources
         for (int i = 0; i < audioSourcePool.Count; i++)
         {
             if (audioSourceInUse[i] && !audioSourcePool[i].isPlaying)

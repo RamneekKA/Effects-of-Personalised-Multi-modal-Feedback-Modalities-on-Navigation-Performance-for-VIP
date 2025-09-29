@@ -2,11 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 
-/// <summary>
-/// Updated RouteGuideSystem with integrated route configuration management
-/// Now handles short vs long distance routes internally based on SessionManager
-/// REPLACES: RouteConfigurationManager (removed)
-/// </summary>
+
 public class RouteGuideSystem : MonoBehaviour
 {
     [Header("Route Definition")]
@@ -471,10 +467,7 @@ public class RouteGuideSystem : MonoBehaviour
         return pathDirection;
     }
     
-    /// <summary>
-    /// Creates a material that supports transparency using the most compatible shader
-    /// FIXED: Prevents pink materials by using reliable fallback shaders
-    /// </summary>
+
     Material CreateSafeTransparentMaterial(Color initialColor)
     {
         Material material = null;

@@ -1,11 +1,6 @@
 using UnityEngine;
 
-/// <summary>
-/// Simplified Visual Enhancement Manager - Compatibility layer only
-/// CLEANED: Removed old AppliedEnhancements system references
-/// The actual enhancement application is now handled by UnifiedEnhancementController
-/// This script maintains compatibility with existing systems that expect VisualEnhancementManager
-/// </summary>
+
 public class SimplifiedVisualEnhancementManager : MonoBehaviour
 {
     [Header("Compatibility Layer")]
@@ -32,10 +27,7 @@ public class SimplifiedVisualEnhancementManager : MonoBehaviour
         Debug.Log("SimplifiedVisualEnhancementManager: Compatibility layer initialized");
     }
     
-    /// <summary>
-    /// Apply visual enhancements - delegates to UnifiedEnhancementController
-    /// Maintains compatibility with existing code that calls this method
-    /// </summary>
+
     public void ApplyEnhancements(VisualEnhancementSettings settings)
     {
         if (settings == null)
@@ -50,8 +42,6 @@ public class SimplifiedVisualEnhancementManager : MonoBehaviour
         // Log the compatibility call
         Debug.Log($"SimplifiedVisualEnhancementManager: Compatibility call - ApplyEnhancements({settings.decisionReason})");
         
-        // The actual enhancement application is handled by UnifiedEnhancementController
-        // This is just for compatibility with systems that expect this method to exist
         
         if (unifiedController != null && !unifiedController.AreEnhancementsActive())
         {
@@ -59,9 +49,7 @@ public class SimplifiedVisualEnhancementManager : MonoBehaviour
         }
     }
     
-    /// <summary>
-    /// Disable all visual enhancements - delegates to UnifiedEnhancementController
-    /// </summary>
+
     public void DisableAllEnhancements()
     {
         if (unifiedController != null)
